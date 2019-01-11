@@ -1,5 +1,6 @@
 # KSU Lasso
 This is the repo for our senior project idea on Lasso.
+Professor's page: http://ksuweb.kennesaw.edu/~mkang9/
 
 #Todo:
 - [ ] Research Lasso and Random Lasso, read: http://statweb.stanford.edu/~tibs/lasso/simple.html and http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
