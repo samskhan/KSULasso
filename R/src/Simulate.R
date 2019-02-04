@@ -31,14 +31,14 @@ dim(tmpGene)
 
 # Attching gene names to gene numbers as a list. -Matthew
 geneList <- list()
-for (i in 1: n_r) {
+for (i in 1:n_r) {
     geneList[[i]] <- unlist(strsplit(tmpGene[i], "\\|"))
 }
 length(geneList)
 
 tmp1 <- matrix(FALSE, nrow = n_r, ncol = 1 )
 tmp_names <- matrix(FALSE, nrow = n_r, ncol = 1 )
-for (i in 1: n_r) {
+for (i in 1:n_r) {
    tmp1[i] <- length(geneList[[i]]) == 1
 }
 dim(tmp1)
@@ -60,14 +60,14 @@ length(gene_names) # 3139
 length(unique(gene_names)) # 3016
 
 unique_gene <- unique(colnames(expGene_Asthma))
-length(unique_gene)   # 3016 
+length(unique_gene) # 3016 
 nc_gene <- length(unique_gene)
 nr_gene <- nrow(expGene_Asthma)
 
 AsthmaData <- matrix(0, nrow = nr_gene, ncol = nc_gene)
 dim(AsthmaData)
 colnames(AsthmaData) <- unique_gene
-rownames(AsthmaData) <- rownames(expGene_Asthma) 
+rownames(AsthmaData) <- rownames(expGene_Asthma)
 for (i in 1:nc_gene) {
     same_gene <- which(!is.na(match(gene_names, unique_gene[i])))
     if (length(same_gene) == 1) {
@@ -94,7 +94,7 @@ Pval_Of_ttest <- matrix(0, ncol = nc)
 names(Pval_Of_ttest) <- colnames(AsthmaData) 
 # Running T-test between AST and CON for every column. -Matthew
 for (ii in 1:nc) {
-    tmp <- t.test(expGene_AST[, ii], expGene_CON[, ii])
+    tmp <- t.test(expGene_AST[, ii], expGene_CON[, ii]) 
     Pval_Of_ttest[ii] <- tmp$p.value
 }
 # Only P-values greater than 0.05 are kept. -Matthew
@@ -130,9 +130,9 @@ set.seed(34567)
 
 # See RandomLasso.R for function. -Matthew
 size <- Determin_Feature_size(Data = Norm_Asthma_TRT, C_I = 0.95, P = 0.5, S_E = 0.05, REP = 20) 
-q1 <- size[[1]]
-q2 <- size[[2]]
-B <- size[[3]]
+q1 <- size[[1]] # 120
+q2 <- size[[2]] # 120
+B <- size[[3]] # 36
 
 numGenes <- ncol(Norm_Asthma)
 Importance_TRT_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes) 
@@ -143,7 +143,8 @@ Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
 Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON,
                            Importance_TRT = Importance_TRT_asthma1,
                            Importance_CON = Importance_CON_asthma1,
-                           NumOfFeatures = q1, repeat_Boostrapping = B,
+                           NumOfFeatures = q1,
+                           repeat_Boostrapping = B,
                            PVAL = 0.05, STEP2 = FALSE) 
 
 
@@ -210,11 +211,11 @@ sum(sig_diff_asthma == TRUE) #  1826
 
 nr <- ncol(sig_diff_asthma)
 sign_trt_con <- matrix('', ncol = nr, nrow = nr)
-     
+
 Graph_asthma <- matrix(0, ncol = 8)
-for (i in 1: nr)
+for (i in 1:nr)
 {
-    for (j in 1: nr)
+    for (j in 1:nr)
     {
         if (sig_diff_asthma[j, i] == TRUE)
         {
