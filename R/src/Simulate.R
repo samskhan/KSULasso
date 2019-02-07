@@ -131,21 +131,21 @@ set.seed(34567)
 # See RandomLasso.R for function. -Matthew
 size <- Determin_Feature_size(Data = Norm_Asthma_TRT, C_I = 0.95, P = 0.5, S_E = 0.05, REP = 20) 
 q1 <- size[[1]] # 120
-q2 <- size[[2]] # 120
+q2 <- size[[2]] # 120 # This is not used. -Matthew
 B <- size[[3]] # 36
 
-numGenes <- ncol(Norm_Asthma)
-Importance_TRT_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes) 
-Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes) 
+numGenes <- ncol(Norm_Asthma) # 214
+Importance_TRT_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
+Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
 
 # Check paper on Random Lasso page 472 for on Step 1. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
 Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON,
-                           Importance_TRT = Importance_TRT_asthma1,
-                           Importance_CON = Importance_CON_asthma1,
+                           Importance_TRT = Importance_TRT_asthma1, # unness
+                           Importance_CON = Importance_CON_asthma1, # unness
                            NumOfFeatures = q1,
                            repeat_Boostrapping = B,
-                           PVAL = 0.05, STEP2 = FALSE) 
+                           PVAL = 0.05, STEP2 = FALSE)
 
 
 # Check paper on Random Lasso page 472 for on Step 2. -Matthew
