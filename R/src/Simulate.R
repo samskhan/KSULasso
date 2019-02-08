@@ -140,11 +140,13 @@ Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
 
 # Check paper on Random Lasso page 472 for on Step 1. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
+source("src/RandomGraph.R") # Temp for reloading functions for testing. -Matthew
+source("src/RandomLasso.R") # Temp for reloading functions for testing. -Matthew
 Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON,
                            Importance_TRT = Importance_TRT_asthma1, # unness
                            Importance_CON = Importance_CON_asthma1, # unness
-                           NumOfFeatures = q1,
-                           repeat_Boostrapping = B,
+                           features = q1,
+                           bootstrap = B,
                            PVAL = 0.05, STEP2 = FALSE)
 
 

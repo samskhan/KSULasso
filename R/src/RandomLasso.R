@@ -42,14 +42,18 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
   rownames(adj.genes.se.control) <- gene.names
   colnames(adj.genes.se.control) <- gene.names
   
+  tracked.time <- matrix(0, nrow = total.genes, ncol = 5)
+  colnames(tracked.time) <- c("Remaining", "Complete",
+                             "Percent", "Passed", "Total")
   start.time = Sys.time()
   
   for (ii in 1:total.genes) {
-    print(paste("Step 1: ", ii, " / ", total.genes))
+    cat(paste("Step 1: ", ii, " / ", total.genes, "\n"))
     if (ii > 1) {
-      PrintEstimateTime(start.time, ii, total.genes, FALSE)
+      tracked.time = PrintEstimateTime(tracked.time, start.time,
+                                       ii, total.genes, TRUE)
     }
-
+    
     x.treatment <- treatment.data
     y.treatment <- x.treatment[, ii] # Y value for lasso. -Matthew
     x.treatment[, ii] <- 1
@@ -139,6 +143,8 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
     adj.genes.se.control[, ii]  <- sqrt(rowSums(Adj_temp_SE_CON^2)  / bootstrap.2)
   }
   Adj_gene_net_b <- list(adj.genes.net.treatment, adj.genes.se.treatment, adj.genes.net.control, adj.genes.se.control)   
+  write(Adj_gene_net_b, paste("bin/LassoResults", Sys.Date(), ".csv", sep = ""))
+  write(tracked.time, paste("bin/TrackedTime", Sys.Date(), ".csv", sep = ""))
   return(Adj_gene_net_b)
 }
 
@@ -184,23 +190,22 @@ LarsForRandomLASSO <- function(XX, y, gene.names, jj, Adj_temp_b,  Adj_temp_SE, 
     return(Adj_temp)
 }
 
-PrintEstimateTime <- function(start.time, current.increment,
+PrintEstimateTime <- function(tracked.time, start.time, current.increment,
                               end.increment, save = FALSE) {
   time.snip <- EstimateTime(start.time, current.increment, end.increment)
-  print(paste("Time Remaining:", Seconds2Time(time.snip$Remaining)))
-  print(paste("Estimated Completion:", time.snip$Complete))
-  print(paste("Percent Complete:", round((100 * time.snip$Percent), 2),"%"))
-  print(paste("Time Passed:", floor(time.snip$Passed), "Seconds"))
-  print(paste("Estimated Total Time:", Seconds2Time(time.snip$Total)))
+  cat(paste("Time Remaining:", Seconds2Time(time.snip$Remaining), "\n"))
+  cat(paste("Estimated Completion:", time.snip$Complete), "\n")
+  cat(paste("Percent Complete:", round((100 * time.snip$Percent), 2),"%\n"))
+  cat(paste("Time Passed:", floor(time.snip$Passed), "Seconds"), "\n")
+  cat(paste("Average Time:", floor(time.snip$Average), "Seconds"), "\n")
+  cat(paste("Estimated Total Time:", Seconds2Time(time.snip$Total), "\n"))
   if (save) {
-    #TrackedTime <- matrix(0, nrow = total.genes, ncol = 5)
-    #colnames(TrackedTime) <- c("Remaining", "Complete",
-    #                           "Percent", "Passed", "Total")
-    #TrackedTime[current.increment - 1, 1] = time.snip$Remaining
-    #TrackedTime[current.increment - 1, 2] = time.snip$Complete
-    #TrackedTime[current.increment - 1, 3] = time.snip$Percent
-    #TrackedTime[current.increment - 1, 4] = time.snip$Passed
-    #TrackedTime[current.increment - 1, 5] = time.snip$Total
+    tracked.time[current.increment - 1, 1] = time.snip$Remaining
+    tracked.time[current.increment - 1, 2] = time.snip$Complete
+    tracked.time[current.increment - 1, 3] = time.snip$Percent
+    tracked.time[current.increment - 1, 4] = time.snip$Passed
+    tracked.time[current.increment - 1, 5] = time.snip$Total
+    return(tracked.time)
   }
 }
 
@@ -209,6 +214,7 @@ EstimateTime <- function(start.time, current.increment, end.increment) {
   current.time <- as.numeric(Sys.time())
   percent <- current.increment / end.increment
   passed <- current.time - start.time
+  average <- passed / current.increment
   remaining <- (passed / percent) - passed
   complete <- as.POSIXct((start.time + remaining), origin = "1970-01-01")
   total <- remaining + passed
@@ -216,6 +222,7 @@ EstimateTime <- function(start.time, current.increment, end.increment) {
                        Complete = complete,
                        Percent = percent,
                        Passed = passed,
+                       Average = average,
                        Total = total)
   return(values)
 }
