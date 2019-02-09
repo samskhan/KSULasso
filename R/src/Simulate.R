@@ -140,6 +140,8 @@ Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
 
 # Check paper on Random Lasso page 472 for on Step 1. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
+library("future") # Temp parrelle programming.
+plan(multiprocess)
 source("src/RandomGraph.R") # Temp for reloading functions for testing. -Matthew
 source("src/RandomLasso.R") # Temp for reloading functions for testing. -Matthew
 Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON,

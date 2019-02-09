@@ -22,7 +22,8 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
   total.genes <- ncol(treatment.data) # 214
   unit.test.genes <- ncol(control.data) #214
   try( if (total.genes != unit.test.genes) {
-    stop("Fatal: Number of columns in Treatment and control.data must be equal.")})
+    stop("Fatal: Number of columns in Treatment and control.data must be equal.")
+    })
     
   # Projection matrix, Beta Hat. -Matthew
   adj.genes.net.treatment <- matrix(0, nrow = total.genes, ncol = total.genes)
@@ -42,18 +43,18 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
   rownames(adj.genes.se.control) <- gene.names
   colnames(adj.genes.se.control) <- gene.names
   
-  tracked.time <- matrix(0, nrow = total.genes, ncol = 5)
+  tracked.time <- matrix(0, nrow = total.genes, ncol = 6)
   colnames(tracked.time) <- c("Remaining", "Complete",
-                             "Percent", "Passed", "Total")
+                              "Percent", "Passed", "Average", "Total")
   start.time = Sys.time()
   
   for (ii in 1:total.genes) {
+    print("Hi!!!")
     cat(paste("Step 1: ", ii, " / ", total.genes, "\n"))
     if (ii > 1) {
       tracked.time = PrintEstimateTime(tracked.time, start.time,
                                        ii, total.genes, TRUE)
     }
-    
     x.treatment <- treatment.data
     y.treatment <- x.treatment[, ii] # Y value for lasso. -Matthew
     x.treatment[, ii] <- 1
@@ -75,10 +76,8 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
     
     Adj_temp_SE_CON <- matrix(0, nrow = total.genes, ncol = bootstrap)  # temporary storage for coefficient, CON
     rownames(Adj_temp_SE_CON) <- gene.names
-    
     # For ith dependent gene, randomly repeat lasso method of B times.
     for (jj in 1:bootstrap) {
-      
       if (jj < 10) {
         cat(paste("...", jj, "  "))
       } else {
@@ -88,17 +87,17 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
           cat(paste("...", jj, " "))
         }
       }
-      
       if (STEP2 == FALSE) { 
           select_prob <- 1/total.genes + Importance_TRT[, ii]
           # Random sample portion. Probabiltiy is determined above. -Matthew
           gene.sample <- sample(gene.names[-ii], features, replace = FALSE, prob = select_prob[-ii])
 
-          xx.treatment <- x.treatment[, which(!is.na(match(colnames(x.treatment), gene.sample)))]
+          xx.treatment %<-% x.treatment[, which(!is.na(match(colnames(x.treatment), gene.sample)))]
+          xx.control %<-% x.control[, which(!is.na(match(colnames(x.control), gene.sample)))]
+          
           xx.treatment <- cbind(1, xx.treatment)  # add intercept first column in xx matrix
           colnames(xx.treatment)[1] <- 'Y'
           
-          xx.control <- x.control[, which(!is.na(match(colnames(x.control), gene.sample)))]
           xx.control <- cbind(1, xx.control)  # add intercept first column in xx matrix
           colnames(xx.control)[1] <- 'Y'
           
@@ -116,14 +115,14 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
           xx.control <- x.control[, which(!is.na(match(colnames(x.control), gene.sample.control)))]
           xx.control <- cbind(1, xx.control)  # add intercept first column in xx matrix
           colnames(xx.control)[1] <- 'Y'
-      } 
-          
+      }
       ##Fit in LASSO model : AST  from here
-      Adj_temp_TRT <- LarsForRandomLASSO(xx.treatment, y.treatment, gene.names, jj, Adj_temp_b_TRT, Adj_temp_SE_TRT, PVAL = 0.01, STEP2)
+      Adj_temp_TRT %<-% LarsForRandomLASSO(xx.treatment, y.treatment, gene.names, jj, Adj_temp_b_TRT, Adj_temp_SE_TRT, PVAL = 0.01, STEP2)
+      Adj_temp_CON %<-% LarsForRandomLASSO(xx.control, y.control, gene.names, jj, Adj_temp_b_CON, Adj_temp_SE_CON, PVAL = 0.01, STEP2)
+      
       Adj_temp_b_TRT[, jj]  <- Adj_temp_TRT[[1]][, jj] # 36 by 214
       Adj_temp_SE_TRT[, jj] <- Adj_temp_TRT[[2]][, jj]
-
-      Adj_temp_CON <- LarsForRandomLASSO(xx.control, y.control, gene.names, jj, Adj_temp_b_CON, Adj_temp_SE_CON, PVAL = 0.01, STEP2)
+      
       Adj_temp_b_CON[, jj]  <- Adj_temp_CON[[1]][, jj]
       Adj_temp_SE_CON[, jj] <- Adj_temp_CON[[2]][, jj]
 
@@ -133,6 +132,7 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
     bootstrap.1 <- rowSums(Adj_temp_b_TRT != 0)
     bootstrap.1[bootstrap.1 == 0] = 1
     print(bootstrap.1)
+    
     bootstrap.2 <- rowSums(Adj_temp_b_CON != 0)
     bootstrap.2[bootstrap.2 == 0] = 1
     print(bootstrap.2)
@@ -142,18 +142,22 @@ RandomLasso <- function(treatment.data, control.data, Importance_TRT, Importance
     adj.genes.net.control[, ii] <- rowSums(Adj_temp_b_CON)  / bootstrap.2
     adj.genes.se.control[, ii]  <- sqrt(rowSums(Adj_temp_SE_CON^2)  / bootstrap.2)
   }
-  Adj_gene_net_b <- list(adj.genes.net.treatment, adj.genes.se.treatment, adj.genes.net.control, adj.genes.se.control)   
-  write(Adj_gene_net_b, paste("bin/LassoResults", Sys.Date(), ".csv", sep = ""))
-  write(tracked.time, paste("bin/TrackedTime", Sys.Date(), ".csv", sep = ""))
+  Adj_gene_net_b <- list(adj.genes.net.treatment, adj.genes.se.treatment,
+                         adj.genes.net.control, adj.genes.se.control)   
+  write.csv(adj.genes.net.treatment, paste("bin/adj.genes.net.treatment", Sys.Date(), ".csv", sep = ""))
+  write.csv(adj.genes.se.treatment, paste("bin/adj.genes.se.treatment", Sys.Date(), ".csv", sep = ""))
+  write.csv(adj.genes.net.control, paste("bin/adj.genes.net.control", Sys.Date(), ".csv", sep = ""))
+  write.csv(adj.genes.se.control, paste("bin/adj.genes.se.control", Sys.Date(), ".csv", sep = ""))
+  write.csv(tracked.time, paste("bin/TrackedTime", Sys.Date(), ".csv", sep = ""))
   return(Adj_gene_net_b)
 }
 
 LarsForRandomLASSO <- function(XX, y, gene.names, jj, Adj_temp_b,  Adj_temp_SE, PVAL, STEP2) {
-    las       <- lars(as.matrix(XX), y, type = "lasso", use.Gram = FALSE)
-    cvlas     <- cv.lars(as.matrix(XX), y, type = "lasso", plot.it = FALSE, use.Gram = FALSE)
+    las       %<-% lars(as.matrix(XX), y, type = "lasso", use.Gram = FALSE)
+    cvlas     %<-% cv.lars(as.matrix(XX), y, type = "lasso", plot.it = FALSE, use.Gram = FALSE)
     frac      <- cvlas$index[which.min(cvlas$cv)]
-    las.coef  <- predict.lars(las, type = "coefficients", mode = "fraction", s = frac)
-    hat_beta  <- las.coef$coefficients
+    hat_beta  <- predict.lars(las, type = "coefficients", mode = "fraction", s = frac)$coefficients
+    #hat_beta  <- las.coef$coefficients
 
     idx <- which(hat_beta != 0)
 
@@ -193,18 +197,19 @@ LarsForRandomLASSO <- function(XX, y, gene.names, jj, Adj_temp_b,  Adj_temp_SE, 
 PrintEstimateTime <- function(tracked.time, start.time, current.increment,
                               end.increment, save = FALSE) {
   time.snip <- EstimateTime(start.time, current.increment, end.increment)
-  cat(paste("Time Remaining:", Seconds2Time(time.snip$Remaining), "\n"))
-  cat(paste("Estimated Completion:", time.snip$Complete), "\n")
-  cat(paste("Percent Complete:", round((100 * time.snip$Percent), 2),"%\n"))
-  cat(paste("Time Passed:", floor(time.snip$Passed), "Seconds"), "\n")
-  cat(paste("Average Time:", floor(time.snip$Average), "Seconds"), "\n")
-  cat(paste("Estimated Total Time:", Seconds2Time(time.snip$Total), "\n"))
+  cat(paste("Time Remaining:", Seconds2Time(time.snip[1]), "\n"))
+  cat(paste("Estimated Completion:", as.POSIXct(time.snip[2], origin = "1970-01-01"), "\n"))
+  cat(paste("Percent Complete:", round((100 * time.snip[3]), 2),"%\n"))
+  cat(paste("Time Passed:", floor(time.snip[4]), "Seconds", "\n"))
+  cat(paste("Average Time:", round(time.snip[5], 1), "Seconds"), "\n")
+  cat(paste("Estimated Total Time:", Seconds2Time(time.snip[6]), "\n"))
   if (save) {
-    tracked.time[current.increment - 1, 1] = time.snip$Remaining
-    tracked.time[current.increment - 1, 2] = time.snip$Complete
-    tracked.time[current.increment - 1, 3] = time.snip$Percent
-    tracked.time[current.increment - 1, 4] = time.snip$Passed
-    tracked.time[current.increment - 1, 5] = time.snip$Total
+    tracked.time[current.increment - 1, 1] = time.snip[1]
+    tracked.time[current.increment - 1, 2] = time.snip[2]
+    tracked.time[current.increment - 1, 3] = time.snip[3]
+    tracked.time[current.increment - 1, 4] = time.snip[4]
+    tracked.time[current.increment - 1, 5] = time.snip[5]
+    tracked.time[current.increment - 1, 6] = time.snip[6]
     return(tracked.time)
   }
 }
@@ -216,14 +221,9 @@ EstimateTime <- function(start.time, current.increment, end.increment) {
   passed <- current.time - start.time
   average <- passed / current.increment
   remaining <- (passed / percent) - passed
-  complete <- as.POSIXct((start.time + remaining), origin = "1970-01-01")
+  complete <- current.time + remaining
   total <- remaining + passed
-  values <- data.frame(Remaining = remaining,
-                       Complete = complete,
-                       Percent = percent,
-                       Passed = passed,
-                       Average = average,
-                       Total = total)
+  values <-  c(remaining, complete, percent, passed, average, total)
   return(values)
 }
 
