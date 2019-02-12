@@ -7,6 +7,10 @@
 # Remember to maintain a coding strandard, i.e. maximum line length of 80.
 # Reasoning, we are men not monsters.
 # https://google.github.io/styleguide/Rguide.xml
+# 
+# For printing, cat() is slighly faster than print(), use when possible.
+#
+# Always preallocate the size of your matrix if possible.
 #
 # -Matthew
 ###############################################################################

@@ -12,7 +12,7 @@ library(gplots)
 library(RColorBrewer)
 
 # Loads xlsx data into memory. -Matthew
-expData <- read_excel("bin/AsthmaDNA.xlsx", col_names = TRUE)
+expData <- read_excel("res/AsthmaDNA.xlsx", col_names = TRUE)
 # Removes entire row if any NA data is present. -Matthew
 expData <- data.frame(na.omit(expData))
 # Name of the genes are located in column one and two. -Matthew
@@ -103,7 +103,7 @@ Asthma_gene <- AsthmaData[, id_gene]
 
 # Adding row names as a row. -Matthew
 write.csv(cbind(rownames(Asthma_gene), Asthma_gene),
-          "bin/AsthmaGenes.csv", row.names = FALSE)
+          "res/AsthmaGenes.csv", row.names = FALSE)
 
 # Normalization. -Matthew
 Norm_Asthma <- scale(Asthma_gene)
@@ -129,34 +129,28 @@ dim(Norm_Asthma_TRT)  # 97 by 214
 set.seed(34567)
 
 # See RandomLasso.R for function. -Matthew
-size <- Determin_Feature_size(Data = Norm_Asthma_TRT, C_I = 0.95, P = 0.5, S_E = 0.05, REP = 20) 
-q1 <- size[[1]] # 120
-q2 <- size[[2]] # 120 # This is not used. -Matthew
-B <- size[[3]] # 36
+#size <- Determin_Feature_size(Data = Norm_Asthma_TRT, C_I = 0.95, P = 0.5, S_E = 0.05, REP = 20) 
+#q1 <- size[[1]] # 120
+#q2 <- size[[2]] # 120 # This is not used. -Matthew
+#B <- size[[3]] # 36
 
-numGenes <- ncol(Norm_Asthma) # 214
-Importance_TRT_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
-Importance_CON_asthma1 <- matrix(0, nrow = numGenes, ncol = numGenes)
 
 # Check paper on Random Lasso page 472 for on Step 1. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
-Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON,
-                           Importance_TRT = Importance_TRT_asthma1, # unness
-                           Importance_CON = Importance_CON_asthma1, # unness
-                           NumOfFeatures = q1,
-                           repeat_Boostrapping = B,
-                           PVAL = 0.05, STEP2 = FALSE)
+library("future") # Temp parrelle programming.
+plan(multiprocess)
+#library(parallel)
+source("src/RandomGraph.R") # Temp for reloading functions for testing. -Matthew
+source("src/RandomLasso.R") # Temp for reloading functions for testing. -Matthew
+Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, STEP2 = FALSE)
 
 
 # Check paper on Random Lasso page 472 for on Step 2. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
-Importance_TRT_asthma2 <- abs(Importance_genes_asthma[[1]])
-Importance_CON_asthma2 <- abs(Importance_genes_asthma[[3]])
-Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, 
-                                        Importance_TRT = Importance_TRT_asthma2,
-                                        Importance_CON = Importance_CON_asthma2,
-                                        NumOfFeatures = q1, repeat_Boostrapping = B,
-                                        PVAL = 0.05, STEP2 = TRUE) 
+#Importance_TRT_asthma2 <- abs(Importance_genes_asthma[[1]])
+#Importance_CON_asthma2 <- abs(Importance_genes_asthma[[3]])
+Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, STEP2 = TRUE) 
+
 
 Adj_gene_net_b_TRT_asthma <- Adj_Asthma_b_RandomLASSO[[1]]
 Adj_gene_SE_b_TRT_asthma  <- Adj_Asthma_b_RandomLASSO[[2]]
@@ -259,15 +253,15 @@ PZ_asthma <- Graph_asthma[Graph_asthma[, 8] == 'PZ', ] # 363
 ZN_asthma <- Graph_asthma[Graph_asthma[, 8] == 'ZN', ] # 340
 ZP_asthma <- Graph_asthma[Graph_asthma[, 8] == 'ZP', ] # 304
 
-write.csv(Graph_asthma, "bin/GraphAsthma.csv",    row.names=FALSE)
-write.csv(NN_asthma,    "bin/GraphAsthmaNN.csv", row.names=FALSE)
-write.csv(NP_asthma,    "bin/GraphAsthmaNP.csv", row.names=FALSE)
-write.csv(NZ_asthma,    "bin/GraphAsthmaNZ.csv", row.names=FALSE)
-write.csv(PN_asthma,    "bin/GraphAsthmaPN.csv", row.names=FALSE)
-write.csv(PP_asthma,    "bin/GraphAsthmaPP.csv", row.names=FALSE)
-write.csv(PZ_asthma,    "bin/GraphAsthmaPZ.csv", row.names=FALSE)
-write.csv(ZN_asthma,    "bin/GraphAsthmaZN.csv", row.names=FALSE)
-write.csv(ZP_asthma,    "bin/GraphAsthmaZP.csv", row.names=FALSE)
+write.csv(Graph_asthma, "res/GraphAsthma.csv",    row.names=FALSE)
+write.csv(NN_asthma,    "res/GraphAsthmaNN.csv", row.names=FALSE)
+write.csv(NP_asthma,    "res/GraphAsthmaNP.csv", row.names=FALSE)
+write.csv(NZ_asthma,    "res/GraphAsthmaNZ.csv", row.names=FALSE)
+write.csv(PN_asthma,    "res/GraphAsthmaPN.csv", row.names=FALSE)
+write.csv(PP_asthma,    "res/GraphAsthmaPP.csv", row.names=FALSE)
+write.csv(PZ_asthma,    "res/GraphAsthmaPZ.csv", row.names=FALSE)
+write.csv(ZN_asthma,    "res/GraphAsthmaZN.csv", row.names=FALSE)
+write.csv(ZP_asthma,    "res/GraphAsthmaZP.csv", row.names=FALSE)
 
 ##==============confirm our significant genes with string DB====================================
 sig_gene_names1 <- Graph_asthma[, 1]
@@ -276,11 +270,11 @@ sig_gene_names2 <- Graph_asthma[, 2]
 unique_sig_gene_names <- unique(sig_gene_names1, sig_gene_names2)
 length(unique_sig_gene_names)  # 1477
 
-write.csv(unique_sig_gene_names, "bin/unique_sig_gene_names.csv", row.names=FALSE)
+write.csv(unique_sig_gene_names, "res/unique_sig_gene_names.csv", row.names=FALSE)
 
 sig_gene_names <- cbind(sig_gene_names1, sig_gene_names2 )
 
-match_gene <- readCSVdata(pathTodata="bin/match_gene.csv") #, sheet=1, verbose=FALSE, perl="c:/Research/R/asthma/perl.exe", header = TRUE)
+match_gene <- readCSVdata(pathTodata="res/match_gene.csv") #, sheet=1, verbose=FALSE, perl="c:/Research/R/asthma/perl.exe", header = TRUE)
 dim(match_gene)
 
 n_sig_gene <- length(sig_gene_names1)   #244
