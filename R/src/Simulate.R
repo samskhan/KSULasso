@@ -10,6 +10,7 @@ library(lars)
 library(pROC)
 library(gplots)
 library(RColorBrewer)
+library(roxygen2)
 
 # Loads xlsx data into memory. -Matthew
 expData <- read_excel("res/AsthmaDNA.xlsx", col_names = TRUE)
@@ -142,14 +143,14 @@ plan(multiprocess)
 #library(parallel)
 source("src/RandomGraph.R") # Temp for reloading functions for testing. -Matthew
 source("src/RandomLasso.R") # Temp for reloading functions for testing. -Matthew
-Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, STEP2 = FALSE)
-
+#Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON)
+Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, suppress = TRUE)
 
 # Check paper on Random Lasso page 472 for on Step 2. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
 #Importance_TRT_asthma2 <- abs(Importance_genes_asthma[[1]])
 #Importance_CON_asthma2 <- abs(Importance_genes_asthma[[3]])
-Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, STEP2 = TRUE) 
+Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON) 
 
 
 Adj_gene_net_b_TRT_asthma <- Adj_Asthma_b_RandomLASSO[[1]]

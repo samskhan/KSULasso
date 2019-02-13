@@ -1,4 +1,3 @@
-
 PrintEstimateTime <- function(tracked.time, start.time, current.increment,
                               end.increment, save = FALSE) {
   time.snip <- EstimateTime(start.time, current.increment, end.increment)
