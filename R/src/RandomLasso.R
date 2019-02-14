@@ -11,7 +11,6 @@
 #' @examples
 #' RandomLasso(asthma.treatment, asthma.control)
 
-
 source("src/EstimateTime.R")
 
 RandomLasso <- function(treatment.data, control.data, bootstrap,
@@ -31,8 +30,8 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
   # Error Handling
   unit.test.genes <- ncol(control.data)
   try( if (total.genes != unit.test.genes) {
-    stop("Fatal: Argument treatment and control have different columns:",
-         treatment.data, " and ", unit.test.genes, ".")
+    stop("Fatal: Argument ", treatment.data, " and ", unit.test.genes, " have
+         different columns.")
     })
   
   Importance_TRT <- matrix(0, nrow = total.genes, ncol = total.genes)
@@ -43,18 +42,17 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
   rownames(adj.genes.net.treatment) <- gene.names
   colnames(adj.genes.net.treatment) <- gene.names
   
-  adj.genes.net.control <- matrix(0, nrow = total.genes, ncol = total.genes)
-  rownames(adj.genes.net.control) <- gene.names
-  colnames(adj.genes.net.control) <- gene.names
+  adj.genes.net.control <- adj.genes.net.treatment
+  adj.genes.se.treatment <- adj.genes.net.treatment
+  adj.genes.se.control <- adj.genes.net.treatment
   
-  adj.genes.se.treatment <- matrix(0, nrow = total.genes, ncol = total.genes)
-  rownames(adj.genes.se.treatment) <- gene.names
-  colnames(adj.genes.se.treatment) <- gene.names
-  
-  adj.genes.se.control <- matrix(0, nrow = total.genes, ncol = total.genes)
-  rownames(adj.genes.se.control) <- gene.names
-  colnames(adj.genes.se.control) <- gene.names
-  
+  temp.b.treatment <- matrix(0, nrow = total.genes, ncol = bootstrap)
+  rownames(temp.b.treatment) <- gene.names
+
+  temp.b.control <- temp.b.treatment
+  temp.se.treatment <- temp.b.treatment
+  temp.se.control <- temp.b.treatment
+
   if (!suppress) {
     tracked.time <- matrix(0, nrow = total.genes, ncol = 6)
     colnames(tracked.time) <- c("Remaining", "Complete",
@@ -72,27 +70,18 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
                                          ii, total.genes, TRUE)
       }
     }
-    
+   
     x.treatment <- treatment.data
-    # y.treatment <- x.treatment[, ii] # Y value for lasso. -Matthew
     x.treatment[, ii] <- 1 # Why make a column of 1's?
-    
-    x.control <- control.data
-    # y.control <- x.control[, ii]  # Y value for lasso. -Matthew
-    x.control[, ii] <- 1 # Why make a column of 1's?
-    
-    Adj_temp_b_TRT <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_b_TRT) <- gene.names
-    
-    Adj_temp_b_CON <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_b_CON) <- gene.names
-    
-    Adj_temp_SE_TRT <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_SE_TRT) <- gene.names
-    
-    Adj_temp_SE_CON <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_SE_CON) <- gene.names
 
+    x.control <- control.data
+    x.control[, ii] <- 1 # Why make a column of 1's?
+
+    temp.b.treatment[] <- 0
+    temp.b.control[] <- 0
+    temp.se.treatment[] <- 0
+    temp.se.control[] <- 0
+   
     for (jj in 1:bootstrap) {
       
       if (!suppress) {
@@ -103,59 +92,52 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
         }
       }
       
-        # select.prob <- 1/total.genes + Importance_TRT[, ii]
-        gene.sample <- sample(gene.names[-ii], features, replace = FALSE,
-                              prob = select.prob[-ii, ii])
+      gene.sample <- sample(gene.names[-ii], features, replace = FALSE,
+                            prob = select.prob[-ii, ii])
+      xx.treatment <- x.treatment[, which(!is.na(match(colnames(x.treatment),
+                                                       gene.sample)))]
+      xx.control <- x.control[, which(!is.na(match(colnames(x.control),
+                                                   gene.sample)))]
+      xx.treatment <- cbind(1, xx.treatment)
+      colnames(xx.treatment)[1] <- 'Y'
 
-        xx.treatment <- x.treatment[, which(!is.na(match(colnames(x.treatment),
-                                                         gene.sample)))]
-        xx.control <- x.control[, which(!is.na(match(colnames(x.control),
-                                                     gene.sample)))]
-        
-        xx.treatment <- cbind(1, xx.treatment) 
-        colnames(xx.treatment)[1] <- 'Y'
-        
-        xx.control <- cbind(1, xx.control)
-        colnames(xx.control)[1] <- 'Y'
-        
-        print(xx.treatment)
-        print(xx.control)
+      xx.control <- cbind(1, xx.control)
+      colnames(xx.control)[1] <- 'Y'
+
       #xx <- list(xx.treatment, xx.control)
-      #yy <- list(y.treatment, y.control)
-      #bb <- list(Adj_temp_b_TRT, Adj_temp_b_CON)
-      #ss <- list(Adj_temp_SE_TRT, Adj_temp_SE_CON)
+      #yy <- list(treatment.data[, ii], control.data[, ii])
+      #bb <- list(temp.b.treatment, temp.b.control)
+      #ss <- list(temp.se.treatment, temp.se.control)
       #gg <- list(gene.names)
       
-      #Vectorization -Matthew
-      #mcmapply(LarsForRandomLASSO, xx, yy, gg, jj, bb, ss, 0.01, STEP2,
-        #mc.cores = 2)
+      # Early Attempts at Vectorization -Matthew
+      #a = mapply(LeastAngleSquare, xx, yy, gg, jj, bb, ss, 0.01, STEP2)
       
-      Adj_temp_TRT <- LarsForRandomLASSO(xx.treatment, treatment.data[, ii],
-                                         gene.names, jj, Adj_temp_b_TRT,
-                                         Adj_temp_SE_TRT, PVAL = 0.01,
+      bootstrapped.treatment <- LeastAngleSquare(xx.treatment, treatment.data[, ii],
+                                         gene.names, jj, temp.b.treatment,
+                                         temp.se.treatment, PVAL = 0.01,
                                          STEP2 = STEP2)
-      Adj_temp_CON <- LarsForRandomLASSO(xx.control, control.data[, ii],
-                                         gene.names, jj, Adj_temp_b_CON,
-                                         Adj_temp_SE_CON, PVAL = 0.01,
+      bootstrapped.control <- LeastAngleSquare(xx.control, control.data[, ii],
+                                         gene.names, jj, temp.b.control,
+                                         temp.se.control, PVAL = 0.01,
                                          STEP2 = STEP2)
       
-      Adj_temp_b_TRT[, jj]  <- Adj_temp_TRT[[1]][, jj] # 36 by 214
-      Adj_temp_SE_TRT[, jj] <- Adj_temp_TRT[[2]][, jj]
-      
-      Adj_temp_b_CON[, jj]  <- Adj_temp_CON[[1]][, jj]
-      Adj_temp_SE_CON[, jj] <- Adj_temp_CON[[2]][, jj]
+      temp.b.treatment[, jj]  <- bootstrapped.treatment[[1]][, jj] # 36 by 214
+      temp.se.treatment[, jj] <- bootstrapped.treatment[[2]][, jj]
+      temp.b.control[, jj]  <- bootstrapped.control[[1]][, jj]
+      temp.se.control[, jj] <- bootstrapped.control[[2]][, jj]
       
       if (!suppress) {
-        if ((jj %% 6) == 0) {
+        if ((jj %% 12) == 0) {
           cat("\n")
         }
       }
     }
     
-    bootstrap.1 <- rowSums(Adj_temp_b_TRT != 0)
+    bootstrap.1 <- rowSums(temp.b.treatment != 0)
     bootstrap.1[bootstrap.1 == 0] = 1
     
-    bootstrap.2 <- rowSums(Adj_temp_b_CON != 0)
+    bootstrap.2 <- rowSums(temp.b.control != 0)
     bootstrap.2[bootstrap.2 == 0] = 1
     
     if (!suppress) {
@@ -163,109 +145,112 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
       print(bootstrap.2)
     }
     
-    adj.genes.net.treatment[, ii] <- rowSums(Adj_temp_b_TRT)  / bootstrap.1
-#adj.genes.se.treatment[, ii] <- sqrt(rowSums(Adj_temp_SE_TRT^2) / bootstrap.1)
-    adj.genes.net.control[, ii] <- rowSums(Adj_temp_b_CON)  / bootstrap.2
-#adj.genes.se.control[, ii] <- sqrt(rowSums(Adj_temp_SE_CON^2) / bootstrap.2)
+    adj.genes.net.treatment[, ii] <- rowSums(temp.b.treatment)  / bootstrap.1
+    adj.genes.se.treatment[, ii] <- sqrt(rowSums(temp.se.treatment^2) / bootstrap.1)
+    adj.genes.net.control[, ii] <- rowSums(temp.b.control)  / bootstrap.2
+    adj.genes.se.control[, ii] <- sqrt(rowSums(temp.se.control^2) / bootstrap.2)
   }
   
-  Importance_TRT <- adj.genes.net.treatment
-  Importance_CON <- adj.genes.net.control
-  STEP2 = TRUE
-  
-  for (ii in 1:total.genes) {
+  # Step II | To Be Continued
+  while (FALSE) {
+    Importance_TRT <- adj.genes.net.treatment
+    Importance_CON <- adj.genes.net.control
+    STEP2 = TRUE
     
-    if (!suppress) {
-      cat(paste("Step 2: ", ii, " / ", total.genes, "\n"))
-      if (ii > 1) {
-        tracked.time = PrintEstimateTime(tracked.time, start.time,
-                                         ii, total.genes, TRUE)
-      }
-    }
-    
-    x.treatment <- treatment.data
-    y.treatment <- x.treatment[, ii]
-    x.treatment[, ii] <- 1
-    
-    x.control <- control.data
-    y.control <- x.control[, ii]
-    x.control[, ii] <- 1
-
-    Adj_temp_b_TRT <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_b_TRT) <- gene.names
-    
-    Adj_temp_b_CON <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_b_CON) <- gene.names
-    
-    Adj_temp_SE_TRT <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_SE_TRT) <- gene.names
-    
-    Adj_temp_SE_CON <- matrix(0, nrow = total.genes, ncol = bootstrap)
-    rownames(Adj_temp_SE_CON) <- gene.names
-    
-    for (jj in 1:bootstrap) {
+    for (ii in 1:total.genes) {
       
       if (!suppress) {
-        if (jj < 10) {
-          cat(paste( "  ", jj, ":", sep = ""))
-        } else {
-          cat(paste( " ", jj, ":", sep = ""))
+        cat(paste("Step 2: ", ii, " / ", total.genes, "\n"))
+        if (ii > 1) {
+          tracked.time = PrintEstimateTime(tracked.time, start.time,
+                                           ii, total.genes, TRUE)
         }
       }
       
-      select.prob_TRT <- 1/total.genes + Importance_TRT[, ii]
-      gene.sample.treatment <- sample(gene.names[-ii], features,replace = FALSE,
-                                      prob = select.prob_TRT[-ii])
+      x.treatment <- treatment.data
+      y.treatment <- x.treatment[, ii]
+      x.treatment[, ii] <- 1
       
-      xx.treatment <- x.treatment[, which(!is.na(match(colnames(x.treatment),
-                                                       gene.sample.treatment)))]
-      xx.treatment <- cbind(1, xx.treatment)
-      colnames(xx.treatment)[1] <- 'Y'
+      x.control <- control.data
+      y.control <- x.control[, ii]
+      x.control[, ii] <- 1
+  
+      temp.b.treatment <- matrix(0, nrow = total.genes, ncol = bootstrap)
+      rownames(temp.b.treatment) <- gene.names
       
-      select.prob_CON <- 1/total.genes + Importance_CON[, ii]
-      gene.sample.control <- sample(gene.names[-ii], features, replace = FALSE,
-                                    prob = select.prob_CON[-ii])
+      temp.b.control <- matrix(0, nrow = total.genes, ncol = bootstrap)
+      rownames(temp.b.control) <- gene.names
       
-      xx.control <- x.control[, which(!is.na(match(colnames(x.control),
-                                                   gene.sample.control)))]
-      xx.control <- cbind(1, xx.control)
-      colnames(xx.control)[1] <- 'Y'
-    
-      Adj_temp_TRT <- LarsForRandomLASSO(xx.treatment, y.treatment, gene.names,
-                                         jj, Adj_temp_b_TRT, Adj_temp_SE_TRT,
-                                         PVAL = 0.01, STEP2)
-      Adj_temp_CON <- LarsForRandomLASSO(xx.control, y.control, gene.names, jj,
-                                         Adj_temp_b_CON, Adj_temp_SE_CON,
-                                         PVAL = 0.01, STEP2)
+      temp.se.treatment <- matrix(0, nrow = total.genes, ncol = bootstrap)
+      rownames(temp.se.treatment) <- gene.names
       
-      Adj_temp_b_TRT[, jj]  <- Adj_temp_TRT[[1]][, jj]
-      Adj_temp_SE_TRT[, jj] <- Adj_temp_TRT[[2]][, jj]
+      temp.se.control <- matrix(0, nrow = total.genes, ncol = bootstrap)
+      rownames(temp.se.control) <- gene.names
       
-      Adj_temp_b_CON[, jj]  <- Adj_temp_CON[[1]][, jj]
-      Adj_temp_SE_CON[, jj] <- Adj_temp_CON[[2]][, jj]
-      if ((jj %% 6) == 0) {
-        cat("\n")
+      for (jj in 1:bootstrap) {
+        
+        if (!suppress) {
+          if (jj < 10) {
+            cat(paste( "  ", jj, ":", sep = ""))
+          } else {
+            cat(paste( " ", jj, ":", sep = ""))
+          }
+        }
+        
+        select.prob_TRT <- 1/total.genes + Importance_TRT[, ii]
+        gene.sample.treatment <- sample(gene.names[-ii], features,replace = FALSE,
+                                        prob = select.prob_TRT[-ii])
+        
+        xx.treatment <- x.treatment[, which(!is.na(match(colnames(x.treatment),
+                                                         gene.sample.treatment)))]
+        xx.treatment <- cbind(1, xx.treatment)
+        colnames(xx.treatment)[1] <- 'Y'
+        
+        select.prob_CON <- 1/total.genes + Importance_CON[, ii]
+        gene.sample.control <- sample(gene.names[-ii], features, replace = FALSE,
+                                      prob = select.prob_CON[-ii])
+        
+        xx.control <- x.control[, which(!is.na(match(colnames(x.control),
+                                                     gene.sample.control)))]
+        xx.control <- cbind(1, xx.control)
+        colnames(xx.control)[1] <- 'Y'
+      
+        bootstrapped.treatment <- LeastAngleSquare(xx.treatment, y.treatment, gene.names,
+                                           jj, temp.b.treatment, temp.se.treatment,
+                                           PVAL = 0.01, STEP2)
+        bootstrapped.control <- LeastAngleSquare(xx.control, y.control, gene.names, jj,
+                                           temp.b.control, temp.se.control,
+                                           PVAL = 0.01, STEP2)
+        
+        temp.b.treatment[, jj]  <- bootstrapped.treatment[[1]][, jj]
+        temp.se.treatment[, jj] <- bootstrapped.treatment[[2]][, jj]
+        
+        temp.b.control[, jj]  <- bootstrapped.control[[1]][, jj]
+        temp.se.control[, jj] <- bootstrapped.control[[2]][, jj]
+        if ((jj %% 6) == 0) {
+          cat("\n")
+        }
       }
+      
+      bootstrap.1 <- rowSums(temp.b.treatment != 0)
+      bootstrap.1[bootstrap.1 == 0] = 1
+      
+      bootstrap.2 <- rowSums(temp.b.control != 0)
+      bootstrap.2[bootstrap.2 == 0] = 1
+      
+      if (!suppress) {
+        print(bootstrap.1)
+        print(bootstrap.2)
+      }
+      
+      adj.genes.net.treatment[, ii] <- rowSums(temp.b.treatment)  / bootstrap.1
+      adj.genes.se.treatment[, ii]  <- sqrt(rowSums(temp.se.treatment^2)  / bootstrap.1 )
+      adj.genes.net.control[, ii] <- rowSums(temp.b.control)  / bootstrap.2
+      adj.genes.se.control[, ii]  <- sqrt(rowSums(temp.se.control^2)  / bootstrap.2)
     }
-    
-    bootstrap.1 <- rowSums(Adj_temp_b_TRT != 0)
-    bootstrap.1[bootstrap.1 == 0] = 1
-    
-    bootstrap.2 <- rowSums(Adj_temp_b_CON != 0)
-    bootstrap.2[bootstrap.2 == 0] = 1
-    
-    if (!suppress) {
-      print(bootstrap.1)
-      print(bootstrap.2)
-    }
-    
-    adj.genes.net.treatment[, ii] <- rowSums(Adj_temp_b_TRT)  / bootstrap.1
-    adj.genes.se.treatment[, ii]  <- sqrt(rowSums(Adj_temp_SE_TRT^2)  / bootstrap.1 )
-    adj.genes.net.control[, ii] <- rowSums(Adj_temp_b_CON)  / bootstrap.2
-    adj.genes.se.control[, ii]  <- sqrt(rowSums(Adj_temp_SE_CON^2)  / bootstrap.2)
   }
   
-  Adj_gene_net_b <- list(adj.genes.net.treatment, adj.genes.se.treatment,
+  results <- list(adj.genes.net.treatment, adj.genes.se.treatment,
                          adj.genes.net.control, adj.genes.se.control)   
   write.csv(adj.genes.net.treatment, paste("res/adj.genes.net.treatment",
                                            Sys.Date(), ".csv", sep = ""))
@@ -277,55 +262,44 @@ RandomLasso <- function(treatment.data, control.data, bootstrap,
                                         Sys.Date(), ".csv", sep = ""))
   write.csv(tracked.time, paste("res/TrackedTime",
                                 Sys.Date(), ".csv", sep = ""))
-  return(Adj_gene_net_b)
+  return(results)
 }
 
 LeastAngleSquare <- function(XX, y, gene.names, jj, Adj_temp_b,  Adj_temp_SE, PVAL, STEP2) {
-    cat("A")  
-    las <- lars(as.matrix(XX), y, type = "lasso", use.Gram = FALSE)
-    cat("B")
-    cvlas <- cv.lars(as.matrix(XX), y, type = "lasso", plot.it = FALSE, use.Gram = FALSE)
-    cat("C")
-    frac <- cvlas$index[which.min(cvlas$cv)]
-    cat("D")
-    hat_beta <- predict.lars(las, type = "coefficients", mode = "fraction", s = frac)$coefficients
-    cat("E")
-    #hat_beta  <- las.coef$coefficients
-
-    idx <- which(hat_beta != 0)
-    cat("F")
+    #las <- lars(as.matrix(XX), y, type = "lasso", use.Gram = FALSE)
+    las2 <- glmnet(XX, y, alpha = 1, family = "gaussian")
+    #cvlas <- cv.lars(as.matrix(XX), y, type = "lasso", plot.it = FALSE, use.Gram = FALSE)
+    cvlas2 <- cv.glmnet(XX, y, alpha = 1)
+    #frac <- cvlas$index[which.min(cvlas$cv)]
+    #hat_beta <- predict.lars(las, type = "coefficients", mode = "fraction", s = frac)$coefficients
+    hat_beta2 <- predict.glmnet(las2, type = "coefficients", s = cvlas2$lambda.1se)
+    idx <- which(hat_beta2 != 0)
 
     if (length(idx) == 0) { 
         Adj_temp_b[, jj] <- 0
         Adj_temp_SE[, jj] <- 0
-
     } else if (STEP2 == FALSE) {
-        gene_id <- match(names(hat_beta[-1]), gene.names)  # 1th is intercept, so remove
-        Adj_temp_b[gene_id, jj] <- hat_beta[-1]
-        Adj_temp_SE[gene_id, jj] <- 0
-        #cat("fighting")
+        gene_id2 <- match(hat_beta2@Dimnames[[1]][-c(1:2)], gene.names)
+        Adj_temp_b[gene_id2, jj] <- hat_beta2[-c(1,2)]
+        Adj_temp_SE[, jj] <- 0
     } else if (STEP2 == TRUE) {
-
         nonzero_xx <- XX[, which(!is.na(match(colnames(XX), names(idx))))]
         print("There is nonzero xx")
-        # linear regression for p-value
         fit.lm    <- lm(y ~. , data = data.frame(nonzero_xx))
         pval <- summary(fit.lm)$coefficients[, 4]
         pval <- pval[-1]
         sig_gene <- which(pval < PVAL)
-
         if (length(sig_gene) == 0 ) {
             Adj_temp_b[, jj] <- 0
             Adj_temp_SE[, jj] <- 0
         } else {
             print("There is significant xx")
             gene_id <- match(names(sig_gene), gene.names)
-            Adj_temp_b[gene_id, jj]  <- summary(fit.lm)$coefficients[sig_gene + 1, 1]   # hat beta
-            Adj_temp_SE[gene_id, jj] <- summary(fit.lm)$coefficients[sig_gene + 1, 2]  # SE of hat beta
+            Adj_temp_b[gene_id, jj]  <- summary(fit.lm)$coefficients[sig_gene + 1, 1]
+            Adj_temp_SE[gene_id, jj] <- summary(fit.lm)$coefficients[sig_gene + 1, 2]
         }
     } 
 
     Adj_temp <- list(Adj_temp_b, Adj_temp_SE)
-    cat("G")
     return(Adj_temp)
 }

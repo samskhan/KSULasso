@@ -138,19 +138,19 @@ set.seed(34567)
 
 # Check paper on Random Lasso page 472 for on Step 1. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
-library("future") # Temp parrelle programming.
-plan(multiprocess)
+#library("future") # Temp parrelle programming.
+#plan(multiprocess)
 #library(parallel)
-source("src/RandomGraph.R") # Temp for reloading functions for testing. -Matthew
+library(glmnet)
 source("src/RandomLasso.R") # Temp for reloading functions for testing. -Matthew
-#Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON)
-Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, suppress = TRUE)
+Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON)
+#Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, suppress = TRUE)
 
 # Check paper on Random Lasso page 472 for on Step 2. -Matthew
 # http://dept.stat.lsa.umich.edu/~jizhu/pubs/Wang-AOAS11.pdf
 #Importance_TRT_asthma2 <- abs(Importance_genes_asthma[[1]])
 #Importance_CON_asthma2 <- abs(Importance_genes_asthma[[3]])
-Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON) 
+#Adj_Asthma_b_RandomLASSO <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON) 
 
 
 Adj_gene_net_b_TRT_asthma <- Adj_Asthma_b_RandomLASSO[[1]]
@@ -187,7 +187,7 @@ z_score_asthma <- diff_beta_asthma / sqrt(Adj_gene_SE_b_TRT_asthma^2 + Adj_gene_
 z_score_asthma[z_score_asthma == 'NaN'] <- 0
 z_score_asthma <- as.matrix(data.frame(z_score_asthma))
 
-p_value_asthma <- pnorm(-abs(z_score_asthma)) *2   #  p value of z-score 
+p_value_asthma <- pnorm(-abs(z_score_asthma)) * 2   #  p value of z-score 
 Prediction_Log10_pval_asthma <- -log10(p_value_asthma)  ##  
 Prediction_Log10_pval_asthma[Prediction_Log10_pval_asthma == 'NaN'] <- 0
 
