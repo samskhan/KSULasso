@@ -61,6 +61,7 @@ for (i in 1:n_iter)   # i is index of replication
   
 }
 
+#library(parallel)
 setwd("~/KSULasso/R/RandomLasso/")
 source("src/RandomLasso.R")
 lasso.coef <- RandomLasso(x, y)

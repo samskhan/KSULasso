@@ -11,103 +11,70 @@
 #' @examples
 #' RandomLasso(asthma.treatment, asthma.control)
 
-#source("src/EstimateTime.R")
-
-RandomLasso <- function(independent, dependent, bootstrap,
-                    PVAL = 0.05, C_I = 0.95, P = 0.5, S_E = 0.05,
-                    REP = 10, suppress = FALSE) {
+RandomLasso <- function(independent, dependent, bootstrap, suppress = FALSE) {
   
   sample.names <- colnames(independent)
-  sample.count <- ncol(independent)
-  features = nrow(independent)
-  
-  if (missing(bootstrap)) {
-    bootstrap <- round(sample.count / features) * 80
-  }
-  index.and.weight = list(0,0)
-  all.weights <- matrix(0, nrow = bootstrap, ncol = sample.count)
-  colnames(all.weights) <- sample.names
-  
+  features <- ncol(independent)
+  samples = nrow(independent)
+  index.and.beta = list(0,0)
   sample = list(0,0)
-  for (ii in 1:bootstrap){
-    sample.index <- sample(sample.names , features, replace = FALSE)
+  if (missing(bootstrap)) {
+    bootstrap <- round(features / samples) * 80
+  }
+  all.weights <- matrix(0, nrow = bootstrap, ncol = features)
+  colnames(all.weights) <- sample.names
+
+  for (ii in 1:bootstrap) {
+    sample.index <- sample(sample.names , samples, replace = FALSE)
     sample[[ii]] <- independent[, which(!is.na(match(sample.names, sample.index)))]
   }
-  
-  print("Step 1...")
-  start = as.numeric(Sys.time())
-  #a = mclapply(sample, BootstrapStep1, dependent,
-  #             sample.names, features, mc.cores = 2)
-  a = lapply(sample, BootstrapStep1, dependent, sample.names, features)
-  print(paste("Vectorized: ",as.numeric(Sys.time() - start)))
-  start = as.numeric(Sys.time())
+  print("Step 1..")
   for (jj in 1:bootstrap) {
-    index.and.weight[[jj]] <- BootstrapStep1(sample[[jj]], dependent, sample.names,
-                                      features)
+    index.and.beta[[jj]] <- BootstrapStep1(sample[[jj]], dependent, sample.names)
   }
-  print(paste("For-loop: ",as.numeric(Sys.time() - start)))
   for (jj in 1:bootstrap) {
-    all.weights[jj, index.and.weight[[jj]][[1]]] <- index.and.weight[[jj]][[2]]
+    all.weights[jj, index.and.beta[[jj]][[1]]] <- index.and.beta[[jj]][[2]]
   }
-   
   sum.weights <- colSums(all.weights) / bootstrap
   probability <- (1 / bootstrap) + abs(sum.weights)
   # probability <- sum.weights / sum(sum.weights)
+  for (ii in 1:bootstrap) {
+    sample.index <- sample(sample.names, samples, replace = FALSE, prob = probability)
+    sample[[ii]] <- independent[, which(!is.na(match(sample.names, sample.index)))]
+  }
   print("Step 2...")
   for (jj in 1:bootstrap) {
-    
-    index.and.weight[jj] <- BootstrapStep2(independent, dependent,  sample.names,
-                                        probability,
-                                        PVAL = 0.01, features)
+    index.and.beta[jj] <- BootstrapStep2(sample[[jj]], dependent, sample.names)
   }
   for (jj in 1:bootstrap) {
-    all.weights[jj, index.and.weight[[jj]][[1]]] <- index.and.weight[[jj]][[2]]
+    all.weights[jj, index.and.beta[[jj]][[1]]] <- index.and.beta[[jj]][[2]]
   }
-  sum.weights <- colSums(all.weights)^2 / bootstrap
+  sum.weights <- colSums(all.weights) / bootstrap
   return(sum.weights)
 }
 
-BootstrapStep1 <- function(independent, dependent, sample.names, features) {
+BootstrapStep1 <- function(independent, dependent, sample.names) {
   
-  #sample.index <- sample(sample.names , features, replace = FALSE)
-  #sample <- independent[, which(!is.na(match(sample.names, sample.index)))]
-  
-  las2 <- glmnet(independent, y, alpha = 1, family = "gaussian")
-  cvlas2 <- cv.glmnet(independent, y, alpha = 1)
-  hat_beta2 <- predict.glmnet(las2, type = "coefficients", s = cvlas2$lambda.1se)
-  idx <- which(hat_beta2 != 0)
-  
-  if (length(idx) == 0) { 
-    Adj_temp_b[, jj] <- 0
-  } else {
-    gene_id2 <- match(hat_beta2@Dimnames[[1]][-c(1:2)], sample.names)
-  }
-  results <- list(gene_id2, hat_beta2[-c(1,2)])
-  return(results)
+  lasso.results <- glmnet(independent, dependent, alpha = 1, family = "gaussian")
+  cv.lasso.results <- cv.glmnet(independent, dependent, alpha = 1)
+  hat.beta <- predict.glmnet(lasso.results, type = "coefficients", s = cv.lasso.results$lambda.1se)
+  gene.index <- match(hat.beta@Dimnames[[1]][-1], sample.names)
+  index.and.beta <- list(gene.index, hat.beta[-1])
+  return(index.and.beta)
 }
 
-BootstrapStep2 <- function(independent, y, sample.names, probability, PVAL, features) {
+BootstrapStep2 <- function(independent, dependent, sample.names) {
   
-  sample.index <- sample(sample.names, features, replace = FALSE, prob = probability)
-  sample <- independent[, which(!is.na(match(sample.names, sample.index)))]
-  
-  las2 <- glmnet(sample, y, alpha = 1, family = "gaussian")
-  cvlas2 <- cv.glmnet(sample, y, alpha = 1)
-  hat_beta2 <- predict.glmnet(las2, type = "coefficients", s = cvlas2$lambda.1se)
-  idx <- which(hat_beta2 != 0)
-  
-  if (length(idx) == 0) { 
-    Adj_temp_b[, jj] <- 0
-  } else {
-    gene_id2 <- match(hat_beta2@Dimnames[[1]][-c(1:2)], sample.names)
-  }
-  results <- list(gene_id2, hat_beta2[-c(1,2)])
-  return(results)
+  lasso.results <- glmnet(independent, dependent, alpha = 1, family = "gaussian")
+  cv.lasso.results <- cv.glmnet(independent, dependent, alpha = 1)
+  hat.beta <- predict.glmnet(lasso.results, type = "coefficients", s = cv.lasso.results$lambda.1se)
+  gene.index <- match(hat.beta@Dimnames[[1]][-1], sample.names)
+  index.and.beta <- list(gene.index, hat.beta[-1])
+  return(index.and.beta)
 }
 
-SampleFeatures <- function(independent, y, sample.names, probability, PVAL, features) {
+SampleFeatures <- function(independent, dependent, sample.names, probability, samples) {
   
-  sample.index <- sample(sample.names, features, replace = FALSE)
+  sample.index <- sample(sample.names, samples, replace = FALSE)
   sample <- independent[, which(!is.na(match(sample.names, sample.index)))]
-  
 }

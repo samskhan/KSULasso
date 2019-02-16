@@ -142,6 +142,7 @@ set.seed(34567)
 #plan(multiprocess)
 #library(parallel)
 library(glmnet)
+setwd("~/KSULasso/R/DiffGRN/")
 source("src/DiffGRN.R") # Temp for reloading functions for testing. -Matthew
 Importance_genes_asthma <- DiffGRN(Norm_Asthma_TRT, Norm_Asthma_CON)
 #Importance_genes_asthma <- RandomLasso(Norm_Asthma_TRT, Norm_Asthma_CON, suppress = TRUE)
