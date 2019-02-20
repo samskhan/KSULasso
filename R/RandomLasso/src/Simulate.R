@@ -12,18 +12,18 @@
 
 #R program fro reading data
 
+options(scipen = 999)
+library("glmnet")
+
 setwd("~/KSULasso/R/RandomLasso/")
 load("res/sim1_sig3_our.RData")
-#sim_data2 = load("res/sim2_sig3_our.RData")
-#sim_data3 = load("res/sim3_sig3_our.RData")
-#sim_data4 = load("res/sim4_sig3_our.RData")
-#sim_data = sim_data2
+#load("res/sim2_sig3_our.RData")
+#load("res/sim3_sig3_our.RData")
+#load("res/sim4_sig3_our.RData")
 
-n_iter <- 1    # iteration
+n_iter <- 1
 
-for (i in 1:n_iter)   # i is index of replication
-{
-  # load simulation data
+for (i in 1:n_iter) {
   y <- sim_data[[i]][2]
   y <- unlist(y)
   y <- matrix(y, ncol = 1)
@@ -48,17 +48,14 @@ for (i in 1:n_iter)   # i is index of replication
   x.val <- unlist(x.val[1])
   x.val <- matrix(x.val, ncol = n_feature, byrow = FALSE)
   
-  cov_x <- sim_data[[i]][8]   # same sigmax
+  cov_x <- sim_data[[i]][8]
   cov_x <- unlist(cov_x[1])
   cov_x <- matrix(cov_x, ncol = n_feature, byrow = FALSE)
   
-  # x.test, y.test, = loadData(sim_data)
-  
   n_feature <- ncol(x)   
-  colnames(x)      <- paste('P', seq(1:n_feature), sep='')
-  colnames(x.val)  <- paste('P', seq(1:n_feature), sep='')
-  colnames(x.test) <- paste('P', seq(1:n_feature), sep='')
-  
+  colnames(x)      <- paste('P', seq(1:n_feature), sep = '')
+  colnames(x.val)  <- paste('P', seq(1:n_feature), sep = '')
+  colnames(x.test) <- paste('P', seq(1:n_feature), sep = '')
 }
 
 #library(parallel)

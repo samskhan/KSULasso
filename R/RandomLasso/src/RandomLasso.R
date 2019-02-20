@@ -11,70 +11,70 @@
 #' @examples
 #' RandomLasso(asthma.treatment, asthma.control)
 
-RandomLasso <- function(independent, dependent, bootstrap, suppress = FALSE) {
-  
-  sample.names <- colnames(independent)
+RandomLasso <- function(independent, dependent, bootstrap, suppress = FALSE,
+                        cutoff = TRUE) {
+  real.feature.names <- colnames(independent)
   features <- ncol(independent)
-  samples = nrow(independent)
+  samples <- nrow(independent)
+  feature.index <- (1:features)
+  index.feature <- (1:samples)
+  colnames(independent) <- feature.index
+  row.names(independent) <- index.feature
+  row.names(dependent) <- index.feature
+  cut.off <- 1 / samples
   index.and.beta = list(0,0)
-  sample = list(0,0)
+  sample.independent = list(0,0)
+  sample.dependent = list(0,0)
   if (missing(bootstrap)) {
-    bootstrap <- round(features / samples) * 80
+    bootstrap <- round(features / samples) * 40
   }
   all.weights <- matrix(0, nrow = bootstrap, ncol = features)
-  colnames(all.weights) <- sample.names
+  colnames(all.weights) <- feature.index
+
 
   for (ii in 1:bootstrap) {
-    sample.index <- sample(sample.names , samples, replace = FALSE)
-    sample[[ii]] <- independent[, which(!is.na(match(sample.names, sample.index)))]
+    index.feature <- sample(feature.index, samples, replace = FALSE)
+    index.sample <- sample(samples, samples, replace = TRUE)
+    sample.independent[[ii]] <- independent[index.sample, which(!is.na(match(feature.index, index.feature)))]
+    sample.dependent[[ii]] <- dependent[index.sample, ]
   }
   print("Step 1..")
-  for (jj in 1:bootstrap) {
-    index.and.beta[[jj]] <- BootstrapStep1(sample[[jj]], dependent, sample.names)
-  }
-  for (jj in 1:bootstrap) {
-    all.weights[jj, index.and.beta[[jj]][[1]]] <- index.and.beta[[jj]][[2]]
-  }
-  sum.weights <- colSums(all.weights) / bootstrap
-  probability <- (1 / bootstrap) + abs(sum.weights)
-  # probability <- sum.weights / sum(sum.weights)
   for (ii in 1:bootstrap) {
-    sample.index <- sample(sample.names, samples, replace = FALSE, prob = probability)
-    sample[[ii]] <- independent[, which(!is.na(match(sample.names, sample.index)))]
+    index.and.beta[[ii]] <- Lasso(sample.independent[[ii]], sample.dependent[[ii]], feature.index)
+  }
+  for (ii in 1:bootstrap) {
+    all.weights[ii, index.and.beta[[ii]][[1]]] <- index.and.beta[[ii]][[2]]
+  }
+
+  importance.measure <- (1 / 1000000000) + abs(colSums(all.weights))
+  for (ii in 1:bootstrap) {
+    index.feature <- sample(feature.index, samples, replace = FALSE, prob = importance.measure)
+    index.sample <- sample(samples, samples, replace = TRUE)
+    sample.independent[[ii]] <- independent[index.sample, which(!is.na(match(feature.index, index.feature)))]
+    sample.dependent[[ii]] <- dependent[index.sample, ]
   }
   print("Step 2...")
-  for (jj in 1:bootstrap) {
-    index.and.beta[jj] <- BootstrapStep2(sample[[jj]], dependent, sample.names)
+  for (ii in 1:bootstrap) {
+    index.and.beta[[ii]] <- Lasso(sample.independent[[ii]], sample.dependent[[ii]], feature.index)
   }
-  for (jj in 1:bootstrap) {
-    all.weights[jj, index.and.beta[[jj]][[1]]] <- index.and.beta[[jj]][[2]]
+  for (ii in 1:bootstrap) {
+    all.weights[ii, index.and.beta[[ii]][[1]]] <- index.and.beta[[ii]][[2]]
   }
   sum.weights <- colSums(all.weights) / bootstrap
+  sum.weights[sum.weights < cut.off] <- 0
+  print(sum.weights)
   return(sum.weights)
 }
 
-BootstrapStep1 <- function(independent, dependent, sample.names) {
+Lasso <- function(independent, dependent, sample.names) {
   
   lasso.results <- glmnet(independent, dependent, alpha = 1, family = "gaussian")
   cv.lasso.results <- cv.glmnet(independent, dependent, alpha = 1)
-  hat.beta <- predict.glmnet(lasso.results, type = "coefficients", s = cv.lasso.results$lambda.1se)
+  hat.beta <- predict.glmnet(lasso.results, type = "coefficients",
+                             s = cv.lasso.results$lambda.1se)
+  print(hat.beta)
   gene.index <- match(hat.beta@Dimnames[[1]][-1], sample.names)
+  print(gene.index)
   index.and.beta <- list(gene.index, hat.beta[-1])
   return(index.and.beta)
-}
-
-BootstrapStep2 <- function(independent, dependent, sample.names) {
-  
-  lasso.results <- glmnet(independent, dependent, alpha = 1, family = "gaussian")
-  cv.lasso.results <- cv.glmnet(independent, dependent, alpha = 1)
-  hat.beta <- predict.glmnet(lasso.results, type = "coefficients", s = cv.lasso.results$lambda.1se)
-  gene.index <- match(hat.beta@Dimnames[[1]][-1], sample.names)
-  index.and.beta <- list(gene.index, hat.beta[-1])
-  return(index.and.beta)
-}
-
-SampleFeatures <- function(independent, dependent, sample.names, probability, samples) {
-  
-  sample.index <- sample(sample.names, samples, replace = FALSE)
-  sample <- independent[, which(!is.na(match(sample.names, sample.index)))]
 }
