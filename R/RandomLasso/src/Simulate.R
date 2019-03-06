@@ -10,12 +10,10 @@
 #testing set variables : x.test, y.test
 #covariance matrix : cov_x
 
-#R program fro reading data
-
 options(scipen = 999)
-library("glmnet")
 
-setwd("~/KSULasso/R/RandomLasso/")
+#setwd("~/Dropbox/MatthewHamilton/Project/RandomLasso/")
+setwd("~/Dropbox/KSULasso/R/RandomLasso/")
 load("res/sim1_sig3_our.RData")
 #load("res/sim2_sig3_our.RData")
 #load("res/sim3_sig3_our.RData")
@@ -57,8 +55,10 @@ for (i in 1:n_iter) {
   colnames(x.val)  <- paste('P', seq(1:n_feature), sep = '')
   colnames(x.test) <- paste('P', seq(1:n_feature), sep = '')
 }
-
-#library(parallel)
-setwd("~/KSULasso/R/RandomLasso/")
+library(glmnet)
+#library(sparklyr)
+#spark_install()
+setwd("~/Dropbox/KSULasso/R/RandomLasso/")
 source("src/RandomLasso.R")
+source("src/RandomLassoSp.R")
 lasso.coef <- RandomLasso(x, y)
