@@ -14,8 +14,8 @@ options(scipen = 999)
 
 #setwd("~/Dropbox/MatthewHamilton/Project/RandomLasso/")
 setwd("~/Dropbox/KSULasso/R/RandomLasso/")
-load("res/sim1_sig3_our.RData")
-#load("res/sim2_sig3_our.RData")
+#load("res/sim1_sig3_our.RData")
+load("res/sim2_sig3_our.RData")
 #load("res/sim3_sig3_our.RData")
 #load("res/sim4_sig3_our.RData")
 
