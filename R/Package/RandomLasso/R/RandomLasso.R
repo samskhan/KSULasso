@@ -13,20 +13,6 @@
 #' RandomLasso(independent, dependent)
 #'
 
-.helper.time.remaining <- function(pb, start.time, current.increment,
-                                         end.increment){
-  setTxtProgressBar(pb, current.increment)
-  passed <- as.numeric(Sys.time()) - start.time
-  remaining <- (passed / (current.increment / end.increment)) - passed
-  hr <- floor(remaining / 3600)
-  min <- floor(remaining / 60) - (hr * 60)
-  sec <- floor(remaining) - (hr * 3600) - (min * 60)
-
-  cat("\r", paste("[",hr, ":", min, ":", sec, "] |", sep = ""))
-  flush.console()
-
-}
-
 RandomLasso <- function(independent, dependent, bootstraps,
                         alpha.a = 1, alpha.b = 1, verbose = TRUE) {
 
@@ -38,89 +24,121 @@ RandomLasso <- function(independent, dependent, bootstraps,
   if (missing(bootstraps)) {
     bootstraps <- round(number.of.features / number.of.samples) * 80
   }
-  # Declairing an empty matrix.
-  all.weights <- matrix(0, nrow = bootstraps, ncol = number.of.features)
-  colnames(all.weights) <- colnames(independent)
 
-  ##########
-  # Step I #
-  ##########
-  # For-loop that bootstraps samples. This can be easily vectorized and
-  # parallelized, but we are waitng to finish implementation
+  # ------------ Step I ------------ #
+
   if (verbose) {
   cat("Part 1 of 2:\n")
-  start <- as.numeric(Sys.time())
   pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
-  for (ii in 1:bootstraps) {
-    if (verbose) {.helper.time.remaining(pb, start, ii, bootstraps)}
-    # Sample features column numbers equal to the number of samples.
-    random.features <- sort(sample(number.of.features, number.of.samples,
-                                         replace = FALSE))
-    # Mix up the rows.
-    random.samples <- sample(number.of.samples, replace = TRUE)
-    # Subset the columns and rows from the independent data.
-    random.independent <- independent[random.samples, random.features]
-    # Subset the rows from the dependent data.
-    random.dependent <- dependent[random.samples, ]
 
-    # Centering the dependent variable.
-    random.dependent.mean <- mean(random.dependent)
-    random.dependent.scale <- random.dependent - random.dependent.mean
+  ii = 0
+  beta.hat = lapply(seq_len(bootstraps), .helper.part.a, independent, dependent,
+         number.of.features, number.of.samples,
+         bootstraps, pb, as.numeric(Sys.time()), alpha.a, verbose)
 
-    # Centering the independent variable.
-    random.independent.mean <- apply(random.independent, 2, mean)
-    random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
-    standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
-    random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
+  importance.measure <- abs(Reduce('+', beta.hat))
 
-    # Obtaining the standard deviation.
-    # Filling in the empty rows one by one with results from lasso.
-    all.weights[ii, random.features] <- Lasso(random.independent.scale,
-                                                    random.dependent.scale,
-                                                    alpha.a)
-  }
-  # Getting the sum of ever column.
-  importance.measure <- abs(colSums(all.weights))
+# ------------ Step II ------------ #
 
-  ###########
-  # Step II #
-  ###########
   if (verbose) {
     cat("\nPart 2 of 2:\n")
-    start <- as.numeric(Sys.time())
     pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
-  for (ii in 1:bootstraps) {
-    if (verbose) {.helper.time.remaining(pb, start, ii, bootstraps)}
-    # Sample features column numbers equal to the number of samples.
-    random.features <- sort(sample(number.of.features, number.of.samples,
-                                   replace = FALSE, prob = importance.measure))
-    # Mix up the rows.
-    random.samples <- sample(number.of.samples, replace = TRUE)
-    # Subset the columns and rows from the independent data.
-    random.independent <- independent[random.samples, random.features]
-    # Subset the rows from the dependent data.
-    random.dependent <- dependent[random.samples, ]
 
-    # Centering the dependent variable.
-    random.dependent.mean <- mean(random.dependent)
-    random.dependent.scale <- random.dependent - random.dependent.mean
+  ii = 0
+  beta.hat = lapply(seq_len(bootstraps), .helper.part.b, independent, dependent,
+             number.of.features, number.of.samples,
+             bootstraps, pb, as.numeric(Sys.time()), alpha.b, verbose,
+             importance.measure)
 
-    # Centering the independent variable.
-    random.independent.mean <- apply(random.independent, 2, mean)
-    random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
-    standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
-    random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
-    # Filling in the empty rows one by one with results from lasso.
-    all.weights[ii, random.features] <- Lasso(random.independent.scale,
-                                              random.dependent.scale,
-                                              alpha.b) / standard.deviation
+  if (verbose) {
+    cat("\n [Done]")
+    close(pb)
   }
-  close(pb)
-  # Dividing weight by number of bootstraps for final answer.
-  sum.weights <- colSums(all.weights) / bootstraps
-  sum.weights[abs(sum.weights) < cut.off] <- 0
-  # colnames(sum.weights) <- real.features.names
+
+  sum.weights <- Reduce('+', beta.hat) / bootstraps
+  sum.weights[abs(sum.weights) < cut.off] <- 0.0
+  sum.weights <- matrix(sum.weights, nrow = number.of.features, ncol = 1)
+  rownames(sum.weights) <- colnames(independent)
+  colnames(sum.weights) <- "Coefficients"
   return(sum.weights)
+}
+
+.helper.part.a <- function(ii, independent, dependent, number.of.features,
+                                    number.of.samples,bootstraps, pb,
+                                    start.time, alpha, verbose) {
+  beta.hat <- numeric(number.of.features)
+  if (verbose) {.helper.time.remaining(pb, start.time, ii, bootstraps)}
+
+  # Sample features column numbers equal to the number of samples.
+  random.features <- sort(sample(number.of.features, number.of.samples,
+                                 replace = FALSE))
+  # Mix up the rows.
+  random.samples <- sample(number.of.samples, replace = TRUE)
+  # Subset the columns and rows from the independent data.
+  random.independent <- independent[random.samples, random.features]
+  # Subset the rows from the dependent data.
+  random.dependent <- dependent[random.samples, ]
+
+  # Centering the dependent variable.
+  random.dependent.mean <- mean(random.dependent)
+  random.dependent.scale <- random.dependent - random.dependent.mean
+
+  # Centering the independent variable.
+  random.independent.mean <- apply(random.independent, 2, mean)
+  random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
+  standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
+  random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
+
+  # Obtaining the standard deviation.
+  # Filling in the empty rows one by one with results from lasso.
+  beta.hat[random.features] <- Lasso(random.independent.scale,random.dependent.scale,
+                                     alpha) / standard.deviation
+  return(beta.hat)
+}
+
+.helper.part.b <- function(ii, independent, dependent, number.of.features,
+                           number.of.samples,bootstraps, pb,
+                           start.time, alpha, verbose, importance) {
+  beta.hat <- numeric(number.of.features)
+  if (verbose) {.helper.time.remaining(pb, start.time, ii, bootstraps)}
+
+  # Sample features column numbers equal to the number of samples.
+  random.features <- sort(sample(number.of.features, number.of.samples,
+                                 replace = FALSE, prob = importance))
+  # Mix up the rows.
+  random.samples <- sample(number.of.samples, replace = TRUE)
+  # Subset the columns and rows from the independent data.
+  random.independent <- independent[random.samples, random.features]
+  # Subset the rows from the dependent data.
+  random.dependent <- dependent[random.samples, ]
+
+  # Centering the dependent variable.
+  random.dependent.mean <- mean(random.dependent)
+  random.dependent.scale <- random.dependent - random.dependent.mean
+
+  # Centering the independent variable.
+  random.independent.mean <- apply(random.independent, 2, mean)
+  random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
+  standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
+  random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
+
+  # Obtaining the standard deviation.
+  # Filling in the empty rows one by one with results from lasso.
+  beta.hat[random.features] <- Lasso(random.independent.scale,random.dependent.scale,
+                                     alpha) / standard.deviation
+  return(beta.hat)
+}
+
+.helper.time.remaining <- function(pb, start.time, current.increment,
+                                   end.increment) {
+  setTxtProgressBar(pb, current.increment)
+  passed <- as.numeric(Sys.time()) - start.time
+  remaining <- (passed / (current.increment / end.increment)) - passed
+  hr <- floor(remaining / 3600)
+  min <- floor(remaining / 60) - (hr * 60)
+  sec <- floor(remaining) - (hr * 3600) - (min * 60)
+
+  cat("\r", paste("[",hr, ":", min, ":", sec, "] |", sep = ""))
 }
