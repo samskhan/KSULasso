@@ -66,7 +66,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
         # Centering the dependent variable.
     random.dependent.mean = mean(random.dependent[[ii]])
     random.dependent.scale[[ii]] = random.dependent[[ii]] - random.dependent.mean
-    
+
     # Centering the independent variable.
     random.independent.mean = apply(random.independent[[ii]], 2, mean)
     temp = matrix(0, nrow = number.of.samples, ncol = number.of.samples)
@@ -78,7 +78,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
     # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
     # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
   }
-  
+
   # Start timer, will add feature to supress printouts later.
   # This is in function argument "supress".
   start = Sys.time()
@@ -110,7 +110,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
     # Centering the dependent variable.
     random.dependent.mean = mean(random.dependent[[ii]])
     random.dependent.scale[[ii]] = random.dependent[[ii]] - random.dependent.mean
-    
+
     # Centering the independent variable.
     random.independent.mean = apply(random.independent[[ii]], 2, mean)
     temp = matrix(0, nrow = number.of.samples, ncol = number.of.samples)
@@ -142,7 +142,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
 ##############################
 
 Coefficients <- function(independent, dependent) {
-  
+
   # Alpha 1 is Lasso, Alpha 0.5 is Net Elastic, and Alpha 0 is Ridge Regression.
   lasso.results <- glmnet(independent, dependent, alpha = 0.5, family = "gaussian")
   cv.lasso.results <- cv.glmnet(independent, dependent, alpha = 0.5)
