@@ -12,8 +12,8 @@
 #' @examples
 #' RandomLasso(independent, dependent)
 
-RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
-                        cutoff = TRUE, alpha1 = 1, alpha2 = 1) { # x & y
+RandomLasso <- function(independent, dependent, bootstraps,
+                        alpha.a = 1, alpha.b = 1, verbose = FALSE) { # x & y
   # We save the real column names, since we are replacing with numeric.
   real.features.names <- colnames(independent)
   number.of.features <- ncol(independent)
@@ -60,6 +60,9 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
     # Centering the independent variable.
     random.independent.mean <- apply(random.independent, 2, mean)
     random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
+    standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
+    random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
+
     # Obtaining the standard deviation.
     # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
     # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
@@ -67,7 +70,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
     # Filling in the empty rows one by one with results from lasso.
     all.weights[ii, random.features] <- Lasso(random.independent.scale,
                                                     random.dependent.scale,
-                                                    alpha1)
+                                                    alpha.a)
   }
   # Getting the sum of ever column.
   importance.measure <- abs(colSums(all.weights))
@@ -93,22 +96,16 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
     # Centering the independent variable.
     random.independent.mean <- apply(random.independent, 2, mean)
     random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
-    # Obtaining the standard deviation.
-    # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
-    # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
-    # Prints time estimation.
+    standard.deviation <- sqrt(apply(random.independent.scale^2, 2, sum))
+    random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
     # Filling in the empty rows one by one with results from lasso.
     all.weights[ii, random.features] <- Lasso(random.independent.scale,
                                               random.dependent.scale,
-                                              alpha1)
+                                              alpha.b) / standard.deviation
   }
   # Dividing weight by number of bootstraps for final answer.
   sum.weights <- colSums(all.weights) / bootstraps
   sum.weights[abs(sum.weights) < cut.off] <- 0
-  #colnames(sum.weights) <- real.features.names
+  # colnames(sum.weights) <- real.features.names
   return(sum.weights)
 }
-
-##############################
-# Lasso Coeffiecent Function #
-##############################
