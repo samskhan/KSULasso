@@ -25,14 +25,7 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
   colnames(independent) <- features.names
   row.names(independent) <- sample.names
   row.names(dependent) <- sample.names
-  # Declaring rest of variables into memory.
-  random.features <- list()
-  random.independent <- list()
-  random.dependent <- list()
-  random.dependent.scale <- list()
-  random.independent.scale <- list()
-  random.independent.sd <- list()
-  random.independent.sd.scale <- list()
+
   # The cutoff value if (-cutoff < 0 < cutoff) then reduce to 0.
   cut.off <- 1 / number.of.samples
 
@@ -51,78 +44,63 @@ RandomLasso <- function(independent, dependent, bootstraps, suppress = FALSE,
   # parallelized, but we are waitng to finish implementation
   for (ii in 1:bootstraps) {
     # Sample features column numbers equal to the number of samples.
-    random.features[[ii]] <- sort(sample(features.names, number.of.samples,
+    random.features <- sort(sample(features.names, number.of.samples,
                                          replace = FALSE))
     # Mix up the rows.
     random.samples <- sample(number.of.samples, replace = TRUE)
     # Subset the columns and rows from the independent data.
-    random.independent[[ii]] <- independent[random.samples, random.features[[ii]]]
+    random.independent <- independent[random.samples, random.features]
     # Subset the rows from the dependent data.
-    random.dependent[[ii]] <- dependent[random.samples, ]
+    random.dependent <- dependent[random.samples, ]
 
     # Centering the dependent variable.
-    random.dependent.mean = mean(random.dependent[[ii]])
-    random.dependent.scale[[ii]] = random.dependent[[ii]] - random.dependent.mean
+    random.dependent.mean <- mean(random.dependent)
+    random.dependent.scale <- random.dependent - random.dependent.mean
 
     # Centering the independent variable.
-    random.independent.mean = apply(random.independent[[ii]], 2, mean)
-    temp = matrix(0, nrow = number.of.samples, ncol = number.of.samples)
-    for (jj in 1:number.of.samples) {
-      temp[ ,jj] = random.independent[[ii]][ ,jj] - random.independent.mean[jj]
-    }
-    random.independent.scale[[ii]] <- temp
+    random.independent.mean <- apply(random.independent, 2, mean)
+    random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
     # Obtaining the standard deviation.
     # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
     # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
-  }
-
-  # Start timer, will add feature to supress printouts later.
-  # This is in function argument "supress".
-  print("Step 1..")
-  # This is anouther easy area to make vectorized and parallelized,
-  # i.e. spark_apply()
-  for (ii in 1:bootstraps) {
     # Prints time estimation.
     # Filling in the empty rows one by one with results from lasso.
-    all.weights[ii, random.features[[ii]]] <- Lasso(random.independent.scale[[ii]],
-                                                    random.dependent.scale[[ii]],
+    all.weights[ii, random.features] <- Lasso(random.independent.scale,
+                                                    random.dependent.scale,
                                                     alpha1)
   }
   # Getting the sum of ever column.
-  importance.measure <- (1 / 1000000000) + abs(colSums(all.weights))
+  importance.measure <- abs(colSums(all.weights))
 
   ###########
   # Step II #
   ###########
   for (ii in 1:bootstraps) {
-    # Using the sum of every column to add probabilty weight for next sampling.
-    random.features[[ii]] <- sort(sample(features.names, number.of.samples,
-                                         replace = FALSE, prob = importance.measure))
-    # Rest is same as before...
+    # Sample features column numbers equal to the number of samples.
+    random.features <- sort(sample(features.names, number.of.samples,
+                                   replace = FALSE, prob = importance.measure))
+    # Mix up the rows.
     random.samples <- sample(number.of.samples, replace = TRUE)
-    random.independent[[ii]] <- independent[random.samples, random.features[[ii]]]
-    random.dependent[[ii]] <- dependent[random.samples, ]
+    # Subset the columns and rows from the independent data.
+    random.independent <- independent[random.samples, random.features]
+    # Subset the rows from the dependent data.
+    random.dependent <- dependent[random.samples, ]
 
     # Centering the dependent variable.
-    random.dependent.mean = mean(random.dependent[[ii]])
-    random.dependent.scale[[ii]] = random.dependent[[ii]] - random.dependent.mean
+    random.dependent.mean <- mean(random.dependent)
+    random.dependent.scale <- random.dependent - random.dependent.mean
 
     # Centering the independent variable.
-    random.independent.mean = apply(random.independent[[ii]], 2, mean)
-    temp = matrix(0, nrow = number.of.samples, ncol = number.of.samples)
-    for (jj in 1:number.of.samples) {
-      temp[ ,jj] = random.independent[[ii]][ ,jj] - random.independent.mean[jj]
-    }
-    random.independent.scale[[ii]] <- temp
+    random.independent.mean <- apply(random.independent, 2, mean)
+    random.independent.scale <- scale(random.independent, random.independent.mean, FALSE)
     # Obtaining the standard deviation.
     # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
     # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
-  }
-  print("Step 2...")
-  for (ii in 1:bootstraps) {
-    all.weights[ii, random.features[[ii]]] <- Lasso(random.independent.scale[[ii]],
-                                                    random.dependent.scale[[ii]],
-                                                    alpha2)
+    # Prints time estimation.
+    # Filling in the empty rows one by one with results from lasso.
+    all.weights[ii, random.features] <- Lasso(random.independent.scale,
+                                              random.dependent.scale,
+                                              alpha1)
   }
   # Dividing weight by number of bootstraps for final answer.
   sum.weights <- colSums(all.weights) / bootstraps
