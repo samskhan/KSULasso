@@ -12,9 +12,9 @@
 
 options(scipen = 999)
 
-#setwd("~/Dropbox/MatthewHamilton/Project/RandomLasso/")
-load("res/sim1_sig3_our.RData")
-#load("res/sim2_sig3_our.RData")
+setwd("~/Dropbox/KSULasso/R/RandomLasso/")
+#load("res/sim1_sig3_our.RData")
+load("res/sim2_sig3_our.RData")
 #load("res/sim3_sig3_our.RData")
 #load("res/sim4_sig3_our.RData")
 
@@ -57,8 +57,7 @@ for (i in 1:n_iter) {
 
 rm(RandomLasso)
 detach("package:RandomLasso", unload = TRUE)
-install.packages("~/Dropbox/KSULasso/R/Package/RandomLasso/", repos = NULL, type =
-                   "source")
+install.packages("~/Dropbox/KSULasso/R/Package/RandomLasso/", repos = NULL,
+                 type = "source")
 library(RandomLasso)
-RandomLasso(x, y)
-
+RandomLasso(x, y, alpha.a = 1, alpha.b = 1)

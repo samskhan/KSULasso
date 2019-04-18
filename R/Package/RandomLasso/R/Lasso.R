@@ -1,5 +1,4 @@
 Lasso <- function(independent, dependent, alpha) {
-
   # Alpha 1 is Lasso, Alpha 0.5 is Net Elastic, and Alpha 0 is Ridge Regression.
   cv.lasso.results <- cv.glmnet(independent, dependent, type.measure = "mse",
                                 nfold = 5, alpha = alpha)

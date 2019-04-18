@@ -11,22 +11,27 @@
 #' @export
 #' @examples
 #' RandomLasso(independent, dependent)
+#'
+
+.helper.time.remaining <- function(pb, start.time, current.increment,
+                                         end.increment){
+  setTxtProgressBar(pb, current.increment)
+  passed <- as.numeric(Sys.time()) - start.time
+  remaining <- (passed / (current.increment / end.increment)) - passed
+  hr <- floor(remaining / 3600)
+  min <- floor(remaining / 60) - (hr * 60)
+  sec <- floor(remaining) - (hr * 3600) - (min * 60)
+
+  cat("\r", paste("[",hr, ":", min, ":", sec, "] |", sep = ""))
+  flush.console()
+
+}
 
 RandomLasso <- function(independent, dependent, bootstraps,
-                        alpha.a = 1, alpha.b = 1, verbose = FALSE) { # x & y
-  # We save the real column names, since we are replacing with numeric.
-  real.features.names <- colnames(independent)
+                        alpha.a = 1, alpha.b = 1, verbose = TRUE) {
+
   number.of.features <- ncol(independent)
   number.of.samples <- nrow(independent)
-  # Replacing row and column names with numeric values.
-  # This arrays of numeric column names will come in handy later.
-  features.names <- (1:number.of.features) # Array of column names.
-  sample.names <- (1:number.of.samples) # Array of row names.
-  colnames(independent) <- features.names
-  row.names(independent) <- sample.names
-  row.names(dependent) <- sample.names
-
-  # The cutoff value if (-cutoff < 0 < cutoff) then reduce to 0.
   cut.off <- 1 / number.of.samples
 
   # If argument "bootstraps" is not set, then we will set it here.
@@ -35,16 +40,22 @@ RandomLasso <- function(independent, dependent, bootstraps,
   }
   # Declairing an empty matrix.
   all.weights <- matrix(0, nrow = bootstraps, ncol = number.of.features)
-  colnames(all.weights) <- features.names
+  colnames(all.weights) <- colnames(independent)
 
   ##########
   # Step I #
   ##########
   # For-loop that bootstraps samples. This can be easily vectorized and
   # parallelized, but we are waitng to finish implementation
+  if (verbose) {
+  cat("Part 1 of 2:\n")
+  start <- as.numeric(Sys.time())
+  pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
+  }
   for (ii in 1:bootstraps) {
+    if (verbose) {.helper.time.remaining(pb, start, ii, bootstraps)}
     # Sample features column numbers equal to the number of samples.
-    random.features <- sort(sample(features.names, number.of.samples,
+    random.features <- sort(sample(number.of.features, number.of.samples,
                                          replace = FALSE))
     # Mix up the rows.
     random.samples <- sample(number.of.samples, replace = TRUE)
@@ -64,9 +75,6 @@ RandomLasso <- function(independent, dependent, bootstraps,
     random.independent.scale <- scale(random.independent.scale, FALSE, standard.deviation)
 
     # Obtaining the standard deviation.
-    # random.independent.sd[[ii]] = sqrt(apply(random.independent.scale[[ii]]^2, 2, sum))
-    # random.independent.sd.scale[[ii]] = scale(random.independent.scale[[ii]], FALSE, random.independent.sd[[ii]])
-    # Prints time estimation.
     # Filling in the empty rows one by one with results from lasso.
     all.weights[ii, random.features] <- Lasso(random.independent.scale,
                                                     random.dependent.scale,
@@ -78,9 +86,15 @@ RandomLasso <- function(independent, dependent, bootstraps,
   ###########
   # Step II #
   ###########
+  if (verbose) {
+    cat("\nPart 2 of 2:\n")
+    start <- as.numeric(Sys.time())
+    pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
+  }
   for (ii in 1:bootstraps) {
+    if (verbose) {.helper.time.remaining(pb, start, ii, bootstraps)}
     # Sample features column numbers equal to the number of samples.
-    random.features <- sort(sample(features.names, number.of.samples,
+    random.features <- sort(sample(number.of.features, number.of.samples,
                                    replace = FALSE, prob = importance.measure))
     # Mix up the rows.
     random.samples <- sample(number.of.samples, replace = TRUE)
@@ -103,6 +117,7 @@ RandomLasso <- function(independent, dependent, bootstraps,
                                               random.dependent.scale,
                                               alpha.b) / standard.deviation
   }
+  close(pb)
   # Dividing weight by number of bootstraps for final answer.
   sum.weights <- colSums(all.weights) / bootstraps
   sum.weights[abs(sum.weights) < cut.off] <- 0
