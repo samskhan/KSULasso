@@ -60,4 +60,7 @@ detach("package:RandomLasso", unload = TRUE)
 install.packages("~/Dropbox/KSULasso/R/Package/RandomLasso/", repos = NULL,
                  type = "source")
 library(RandomLasso)
-RandomLasso(x, y, alpha.a = 1, alpha.b = 0.5, verbose = TRUE, bootstraps = 3000)
+RandomLasso(x, y,  bootstraps = 300, alpha = c(1, 1), verbose = TRUE)
+
+part1 <- SteppedRandomLasso(x, y, bootstraps = 300, alpha = 1, verbose = TRUE)
+part2 <- SteppedRandomLasso(x, y, importance = part1, bootstraps = 300, alpha = 1, verbose = TRUE)

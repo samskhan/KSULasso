@@ -1,16 +1,16 @@
 Package: RandomLasso
-Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: What license is it under?
+Title: A library of Random Lasso functions.
+Version: 0.99.0
+Authors@R: c(
+  person("James", "Hamilton", email="jamesmatthewhamilton@icloud.com", role="cre"), 
+  person("Mingon", "Kang", email="mkang9@kennesaw.edu", role="ctb"))
+Description: Library provides an array of Random Lasso like functions with tuning parameters. Random Lasso runs with an independent and dependent input.
+License: file LICENSE Artistic-2.0
 Encoding: UTF-8
-LazyData: true
+LazyData: FALSE
 Imports:
-  glmnet,
-  ggplot2
-Suggests:
+  glmnet
+Enhances:
   sparklyr
+biocViews:
+  Regression
