@@ -12,9 +12,9 @@
 
 options(scipen = 999)
 
-setwd("~/Dropbox/KSULasso/R/RandomLasso/")
-load("res/sim1_sig3_our.RData")
-#load("res/sim2_sig3_our.RData")
+setwd("~/Dropbox/KSULasso/R/Package/test")
+#load("res/sim1_sig3_our.RData")
+load("res/sim2_sig3_our.RData")
 #load("res/sim3_sig3_our.RData")
 #load("res/sim4_sig3_our.RData")
 
