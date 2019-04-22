@@ -17,7 +17,6 @@
 
   sc <- spark_connect(master = "local", config = conf)
 
-
   setwd("~/Dropbox/KSULasso/R/SparkSandbox/")
   x = read.csv("x", row.names = 1)
   y = read.csv("y", row.names = 1)
@@ -34,28 +33,38 @@
   # x_sp <- copy_to(sc, x, overwrite = TRUE)
   # y_sp <- copy_to(sc, y, overwrite = TRUE)
   all <- copy_to(sc, all, overwrite = TRUE)
-  empty <- copy_to(sc, empty, overwrite = TRUE)
+  # empty <- copy_to(sc, empty, overwrite = TRUE)
 
 
 # ------------ Playground ------------
 
-  x_sp %>% head()
-  x_sp %>% colnames()
+  all %>% head()
+  all %>% colnames()
 
-  partitions <- x_sp %>%
+  partitions <- all %>%
     select(c(1,3,9))
 
   partitions %>% head()
 
-  avgs <- summarize_all(x_sp, funs(mean)) %>% as.data.frame()
-  exprs <- as.list(paste(colnames(x_sp),"-", avgs))
-  x_sp %>%
+  count_lines <- function(sc, all) {
+    spark_context(sc) %>%
+      invoke("textFile", all, 1L) %>%
+      invoke("count")
+  }
+  count_lines(sc, )
+
+
+  # Finds average of columns
+  avgs <- summarize_all(all, funs(mean)) %>% as.data.frame()
+  exprs <- as.list(paste(colnames(all),"-", avgs))
+  all %>%
     spark_dataframe() %>%
     invoke("selectExpr", exprs) %>%
-    invoke("toDF", as.list(colnames(x_sp))) %>%
+    invoke("toDF", as.list(colnames(all))) %>%
     invoke("registerTempTable", "centered")
   xx <- tbl(sc, "centered")
   xx %>% head()
+  # Finds average of columns
 
   random.features <- sample(number.of.features,
                             number.of.samples,
@@ -83,7 +92,7 @@
     pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
 
-  beta.hat3 <- lapply(seq_len(2), .helper.part.a, all,
+  beta.hat3 <- lapply(seq_len(bootstraps), .helper.part.a, all,
                      number.of.features, number.of.samples,
                      bootstraps, pb, as.numeric(Sys.time()), alpha[1], verbose)
 
@@ -207,3 +216,5 @@ Lasso <- function(independent, dependent, alpha) {
 
   cat("\r", paste("[",hr, ":", min, ":", sec, "] |", sep = ""))
 }
+
+spark_disconnect(sc)
