@@ -21,28 +21,48 @@ number.of.samples <- nrow(x)
 bootstraps <- round(number.of.features / number.of.samples) * 80
 
 all <- copy_to(sc, all, overwrite = TRUE)
+empty <- copy_to(sc, all, overwrite = TRUE)
+
+# map (random features, ___)
+#
+# Coef
+# emit()
+#
+# Reduce()
+partition = list()
+
+for (ii in 1:bootstraps) {
+partition[[ii]] = all %>%
+  select(c(1, sample(number.of.features, number.of.samples, replace = FALSE))) %>%
+  sdf_sample(replacement = TRUE) %>%
+  ml_linear_regression(response = dependent ~ .,
+                      fit_intercept = TRUE,
+                      lastic_net_param = 1)
+}
 
 # >>>>>>>>>> Spark Test <<<<<<<<<<
 if (verbose) {
   cat("Spark Part:\n")
-  pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
+  pb <- txtProgressBar(min = 0, max = 10, style = 3)
 }
 spark.time <- Sys.time()
 spark.beta.hat <- lapply(seq_len(10), SparkBootstrap, all,
-                    number.of.features, number.of.samples,
-                    bootstraps, pb, as.numeric(Sys.time()), alpha, verbose)
+                  number.of.features, number.of.samples,
+                  10, pb, as.numeric(Sys.time()), alpha, verbose)
 spark.time <- Sys.time() - spark.time
 print(spark.time)
+
+
 
 # >>>>>>>>>> Normal R Test <<<<<<<<<<
 if (verbose) {
   cat("Normal R Part:\n")
-  pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
+  pb <- txtProgressBar(min = 0, max = 10, style = 3)
 }
 r.time <- Sys.time()
 r.beta.hat <- lapply(seq_len(10), RBootstrap, x, y,
                    number.of.features, number.of.samples,
-                   bootstraps, pb, as.numeric(Sys.time()), alpha, verbose)
+                   10, pb, as.numeric(Sys.time()), alpha, verbose)
 r.time <- Sys.time() - r.time
 print(r.time)
 
@@ -56,14 +76,13 @@ SparkBootstrap <- function(ii, all, number.of.features,
 
   random.features <- sample(number.of.features, number.of.samples,
                             replace = FALSE)
-
   random.all <- all %>%
-    select(c(1,random.features))
+    select(c(1,random.features)) %>%
+    sdf_sample(replacement = FALSE)
 
   fit <- random.all %>% ml_linear_regression(response = dependent ~ .,
                                              fit_intercept = TRUE,
                                              lastic_net_param = 1)
-
   return(fit)
 }
 
