@@ -16,6 +16,16 @@
 
 RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE) {
 
+  Sys.setenv(SPARK_HOME = "/Users/MatthewHamilton/Dropbox/KSULasso/R/SparkSandbox/spark-2.4.1-bin-hadoop2.7/")
+  .libPaths(c(file.path(Sys.getenv("SPARK_HOME"), "R", "lib"), .libPaths()))
+  library("SparkR", lib.loc = "/Users/MatthewHamilton/Dropbox/KSULasso/R/SparkSandbox/spark-2.4.1-bin-hadoop2.7/")
+  library(SparkR)
+  sc <- sparkR.session(master = "local",
+                       sparkEnvir = list(spark.driver.memory = "2g",
+                                         spark.num.executors = "2",
+                                         spark.executor.cores = "2"))
+  sqlContext <- sparkR.session(sc) #?
+
   x = as.matrix(x)
   y = as.matrix(y)
   number.of.features <- ncol(x)
@@ -38,7 +48,8 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE) {
          number.of.features, number.of.samples,
          bootstraps, pb, as.numeric(Sys.time()), alpha[1], verbose)
 
-  importance.measure <- abs(Reduce('+', beta.hat))
+  reduce.a <- function(x, y) {abs(x + y)}
+  importance.measure <- Reduce(reduce.a, beta.hat)
 
 # ------------ Step II ------------ #
 
@@ -48,16 +59,17 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE) {
   }
 
   beta.hat <- lapply(seq_len(bootstraps), .helper.part.b, x, y,
-             number.of.features, number.of.samples,
-             bootstraps, pb, as.numeric(Sys.time()), alpha[2], verbose,
-             importance.measure)
+              number.of.features, number.of.samples,
+              bootstraps, pb, as.numeric(Sys.time()), alpha[2], verbose,
+              importance.measure)
 
   if (verbose) {
     cat("\n [Done]")
     close(pb)
   }
 
-  sum.weights <- Reduce('+', beta.hat) / bootstraps
+  reduce.b <- function(x, y) {x + y / bootstraps}
+  sum.weights <- Reduce(reduce.b, beta.hat)
   sum.weights[abs(sum.weights) < cut.off] <- 0
   sum.weights <- matrix(sum.weights, nrow = number.of.features, ncol = 1)
   rownames(sum.weights) <- colnames(x)
