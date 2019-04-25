@@ -20,7 +20,7 @@ class RandomLasso:
         self.dependent = dependent if dependent is not None else None
         self.sampleCount = self.independent.shape[0] if independent is not None else 1
         self.featureCount = self.independent.shape[1]-1 if independent is not None else 1
-        self.bootstraps = bootstraps if bootstraps is not None else int(self.featureCount/self.sampleCount)
+        self.bootstraps = bootstraps if bootstraps is not None else int((self.featureCount/self.sampleCount)*80)
         self.supress = self.supress if supress is not None else False
         self.cutoff = self.cutoff if cutoff is not None else None
 
@@ -34,6 +34,7 @@ class RandomLasso:
         self.dependent = pd.read_csv(pathy)
         self.sampleCount = self.independent.shape[0]
         self.featureCount = self.independent.shape[1]-1
+        self.bootstraps = int((self.featureCount/self.sampleCount)*80)
 
         return self.independent, self.dependent
 
@@ -70,18 +71,19 @@ class RandomLasso:
             std_coeff = np.array(std_coeff,dtype=np.float32)
             all_coeff.iloc[num,listFeatures] = std_coeff
 
-
+        
         summedCoeff = all_coeff.sum(axis=0,skipna=True)
         summedCoeff = np.abs(summedCoeff)
-
+        summedCoeff = np.array(summedCoeff)
+        summedCoeff /= summedCoeff.sum().astype(float)
+        
         return summedCoeff
 
 
     def procedure2(self, bootstraps, algorithm2, Probabilities):
-        Probabilities = np.array(Probabilities)
-        Probabilities /= Probabilities.sum().astype(float)
+        
 
-        print(Probabilities)
+        
         all_coeff = pd.DataFrame(np.zeros((bootstraps,self.featureCount)))
         for num in range(bootstraps):
 

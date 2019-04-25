@@ -10,7 +10,9 @@ def main():
     rl = RandomLasso()
     x,y=rl.readData("/home/delilah2/Documents/KSULasso/KSULasso_Python/sample/test2_x.csv","/home/delilah2/Documents/KSULasso/KSULasso_Python/sample/test2_y.csv")
     # rl.printData()
-    print(x)
+    print(rl.bootstraps)
+    print(rl.sampleCount)
+    print(rl.featureCount)
 
     coeff = rl.fit(linear_model.Lasso(alpha=1.0),linear_model.Lasso(alpha=1.0),x=x,y=y)
     
