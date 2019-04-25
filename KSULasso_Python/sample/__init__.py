@@ -1,1 +1,1 @@
-from RandomLasso import RandomLasso
+from .RandomLasso import RandomLasso
