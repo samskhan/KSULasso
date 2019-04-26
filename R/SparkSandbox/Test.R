@@ -20,8 +20,7 @@ number.of.features <- ncol(x)
 number.of.samples <- nrow(x)
 bootstraps <- round(number.of.features / number.of.samples) * 80
 
-all <- copy_to(sc, all, overwrite = TRUE)
-empty <- copy_to(sc, all, overwrite = TRUE)
+all <- copy_to(sc, all, overwrite = TRUE, repartition = 10)
 
 # map (random features, ___)
 #
@@ -30,6 +29,21 @@ empty <- copy_to(sc, all, overwrite = TRUE)
 #
 # Reduce()
 partition = list()
+
+regression <- function(ii, all, number.of.features, number.of.samples) {
+  coefficients <- all %>%
+    select(c(1, sample(number.of.features, number.of.samples, replace = FALSE))) %>%
+    sdf_sample(replacement = TRUE) %>%
+    ml_linear_regression(response = dependent ~ .,
+                         fit_intercept = TRUE,
+                         lastic_net_param = 1)
+  return(coefficients)
+}
+
+test <- all %>% spark_apply(function(e) lapply(1:10, regression, e, regression,
+                                              number.of.features,
+                                              number.of.samples))
+
 
 for (ii in 1:bootstraps) {
 partition[[ii]] = all %>%
