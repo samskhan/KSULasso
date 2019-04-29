@@ -9,7 +9,7 @@ setuptools.setup(
 
     name='KSULasso_Python',  
 
-    version='0.1',
+    version='0.3',
 
     scripts=['KSULasso'],
 
