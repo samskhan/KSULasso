@@ -1,5 +1,6 @@
 export(RandomLasso)
-export(RandomLassoSp)
+# export(RandomLassoSp) # Depreciated
 export(ParallelRandomLasso)
+export(RapidRandomLasso)
 export(SteppedRandomLasso)
 import(glmnet)
