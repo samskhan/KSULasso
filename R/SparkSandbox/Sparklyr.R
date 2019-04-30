@@ -1,35 +1,47 @@
 library(sparklyr)
 library(dplyr)
 
+# >>>>> CONFIG SPARK <<<<<
 spark_install()
 conf <- spark_config()
 conf$sparklyr.cores.local <- 2
-conf$sparklyr.shell.driver-memory <- "8G"
+conf$'sparklyr.shell.driver-memory' <- "8G"
 conf$spark.memory.fraction <- 0.9
 
+# >>>>> CONNECT TO NODE <<<<<
 sc <- spark_connect(master = "local", config = conf)
 
+# >>>>> R STUFF <<<<<
 setwd("~/Dropbox/KSULasso/R/SparkSandbox/")
 x = read.csv("x", row.names = 1)
 y = read.csv("y", row.names = 1)
 colnames(y) <- "dependent"
-all <- cbind(y, x)
+r_all <- cbind(y, x)
 alpha = 1
 verbose = TRUE
 number.of.features <- ncol(x)
 number.of.samples <- nrow(x)
-bootstraps <- round(number.of.features / number.of.samples) * 80
+bootstraps <- round(number.of.features / number.of.samples) * 40
 
-all <- copy_to(sc, all, overwrite = TRUE, repartition = 10)
+# Converts R dataframe into spark dataframe.
+all <- copy_to(sc, r_all, overwrite = TRUE)
 
-# map (random features, ___)
-#
-# Coef
-# emit()
-#
-# Reduce()
+# A function to get the number of partitions, which is 1.
+sdf_num_partitions(all) 
+
+# >>>>>> MOST BASIC EXAMPLE EXAMPLE | 1 BOOTSTRAP<<<<<<
+# Returns a R Dataframe of coef, but does all calculations in Spark.
+test <- all %>%
+  select(c(1, sample(number.of.features, number.of.samples, replace = FALSE))) %>%
+  sdf_sample(replacement = TRUE) %>%
+  ml_linear_regression(response = dependent ~ .,
+                       fit_intercept = TRUE,
+                       lastic_net_param = 1)
+
+
+# >>>>>> FUNCTION EXAMPLE <<<<<<
+# Incorrect, a function for that returns coef from spark dataframe as R dataframe.
 partition = list()
-
 regression <- function(ii, all, number.of.features, number.of.samples) {
   coefficients <- all %>%
     select(c(1, sample(number.of.features, number.of.samples, replace = FALSE))) %>%
@@ -40,12 +52,15 @@ regression <- function(ii, all, number.of.features, number.of.samples) {
   return(coefficients)
 }
 
+# >>>>>> SPARK APPLY EXAMPLE <<<<<<
+# Incorrect & broken, saves coef into a list of R data frames using spark_apply and lapply.
 test <- all %>% spark_apply(function(e) lapply(1:10, regression, e, regression,
                                               number.of.features,
                                               number.of.samples))
 
-
-for (ii in 1:bootstraps) {
+# >>>>>> FOR LOOP EXAMPLE <<<<<<
+# Incorrect, saves each bootstrap of coef as R dataframe in a list.
+for (ii in 1:10) {
 partition[[ii]] = all %>%
   select(c(1, sample(number.of.features, number.of.samples, replace = FALSE))) %>%
   sdf_sample(replacement = TRUE) %>%
@@ -54,7 +69,7 @@ partition[[ii]] = all %>%
                       lastic_net_param = 1)
 }
 
-# >>>>>>>>>> Spark Test <<<<<<<<<<
+# >>>>>>>>>> LAPPLY EXAMPLE <<<<<<<<<<
 if (verbose) {
   cat("Spark Part:\n")
   pb <- txtProgressBar(min = 0, max = 10, style = 3)
@@ -67,8 +82,7 @@ spark.time <- Sys.time() - spark.time
 print(spark.time)
 
 
-
-# >>>>>>>>>> Normal R Test <<<<<<<<<<
+# >>>>>>>>>> Normal R Test with NO SPARK<<<<<<<<<<
 if (verbose) {
   cat("Normal R Part:\n")
   pb <- txtProgressBar(min = 0, max = 10, style = 3)
