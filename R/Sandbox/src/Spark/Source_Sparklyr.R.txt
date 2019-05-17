@@ -1,0 +1,148 @@
+library("sparklyr")
+library("dplyr")
+library("glmnet")
+# library("purrr")
+# library("rsparkling")
+
+# >>>>> CONFIG SPARK <<<<<
+spark_install()
+conf <- spark_config()
+conf$sparklyr.cores.local <- 2
+conf$'sparklyr.shell.driver-memory' <- "8G"
+conf$spark.memory.fraction <- 0.9
+
+# >>>>> CONNECT TO NODE <<<<<
+sc <- spark_connect(master = "local", config = conf)
+
+# >>>>> Load CSV DIRECTLY INTO SPARK <<<<<
+setwd("~/Dropbox/KSULasso/R/SparkSandbox/")
+x = spark_read_csv(sc, name = "x.csv", path = "x")
+y = spark_read_csv(sc, name = "y.csv", path = "y")
+
+# >>>>> LOAD DATA INTO R <<<<<
+setwd("~/Dropbox/KSULasso/R/SparkSandbox/")
+x = read.csv("x.csv", row.names = 1)
+y = read.csv("y.csv", row.names = 1)
+colnames(y) <- "dependent"
+all_data_R <- cbind(y, x)
+alpha = 1
+verbose = TRUE
+features <- ncol(x)
+samples <- nrow(x)
+bootstraps <- round(features / samples) * 40
+
+# >>>>> Load R DATA INTO SPARK  <<<<<
+# Converts R dataframe into spark dataframe.
+all_data <- copy_to(sc, all_data_R, overwrite = TRUE)
+coef <- copy_to(sc, as.data.frame(matrix(0, nrow = bootstraps, ncol = features)), overwrite = TRUE)
+
+# A function to get the number of partitions, which is 1.
+# When data is partitioned it will automatically run in parallel.
+# Optimally we would want to partition this equal to the number of bootsraps...
+sdf_num_partitions(all_data) 
+
+# >>>>>> MOST BASIC EXAMPLE EXAMPLE | 1 BOOTSTRAP <<<<<<
+# Returns an ML Pipeline of one bootsrap of coef, and does all calculations in Spark.
+test <- all_data %>%
+  select(c(1, sample(features, samples, replace = FALSE))) %>%
+  sdf_sample(replacement = TRUE) %>% 
+  ml_linear_regression(response = dependent ~ .,
+                       fit_intercept = TRUE,
+                       lastic_net_param = 1)
+attributes(test)
+head(test)
+attributes(test[7]$coefficients)
+
+# >>>>>> SPARK FUNCTION EXAMPLE <<<<<<
+# A function that returns coef from spark dataframe as R dataframe.
+partition = list()
+
+regression <- function(ii, all, features, samples) {
+  coefficients <- all %>%
+    select(c(1, sample(features, samples, replace = FALSE))) %>%
+    sdf_sample(replacement = TRUE) %>%
+    ml_linear_regression(response = dependent ~ .,
+                         fit_intercept = TRUE,
+                         lastic_net_param = 1)
+  return(coefficients)
+}
+
+# >>>>>> SPARK APPLY EXAMPLE <<<<<<
+# Broken, saves coef into a list of R data frames using spark_apply and lapply.
+test <- all %>% spark_apply(function(e) lapply(1:10, regression, e,
+                                               regression, features, samples))
+
+# >>>>>> FOR LOOP EXAMPLE <<<<<<
+# Saves each bootstrap of coef as R dataframe in a list.
+for (ii in 1:10) {
+partition[[ii]] = all_data %>%
+  select(c(1, sample(features, samples, replace = FALSE))) %>%
+  sdf_sample(replacement = TRUE) %>%
+  ml_linear_regression(response = dependent ~ .,
+                      fit_intercept = TRUE,
+                      lastic_net_param = 1)
+}
+
+# >>>>>>>>>> ANOUTHER SPARK FUNCTION <<<<<<<<<<
+SparkBootstrap <- function(ii, all_data, features, samples, bootstraps,
+                           start.time, alpha, verbose, importance) {
+  
+  random.features <- sample(features, samples,
+                            replace = FALSE)
+  random.all <- all_data %>%
+    select(c(1,random.features)) %>%
+    sdf_sample(replacement = FALSE)
+  
+  fit <- random.all %>% ml_linear_regression(response = dependent ~ .,
+                                             fit_intercept = TRUE,
+                                             lastic_net_param = 1)
+  return(fit)
+}
+
+# >>>>>>>>>> R FUNCTION <<<<<<<<<<
+RBootstrap <- function(ii, x, y, features,
+                       samples, bootstraps, pb,
+                       start.time, alpha, verbose) {
+  beta.hat <- numeric(features)
+  if (verbose) {.helper.time.remaining(pb, start.time, ii, bootstraps)}
+  
+  random.features <- sample(features, samples,
+                            replace = FALSE)
+  random.samples <- sample(samples, replace = TRUE)
+  random.x <- x[random.samples, random.features]
+  random.y <- y[random.samples, ]
+  
+  random.y.mean <- mean(random.y)
+  random.y.scale <- random.y - random.y.mean
+  
+  random.x.mean <- apply(random.x, 2, mean)
+  random.x.scale <- scale(random.x, random.x.mean, FALSE)
+  standard.deviation <- sqrt(apply(random.x.scale^2, 2, sum))
+  random.x.scale <- scale(random.x.scale, FALSE, standard.deviation)
+  
+  beta.hat[random.features] <- Lasso(random.x.scale, random.y.scale, alpha) / standard.deviation
+  
+  cv.lasso.results <- cv.glmnet(random.x.scale, random.y.scale, type.measure = "mse",
+                                nfold = 5, alpha = alpha)
+  lasso.results <- glmnet(random.x.scale, random.y.scale, lambda = cv.lasso.results$lambda.min,
+                          standardize = FALSE, alpha = alpha, intercept = FALSE)
+  hat.beta <- coef(lasso.results)[-1]
+  return(hat.beta)
+}
+
+# >>>>>>>>>> LAPPLY SPEED TEST WITH SPARK DATAFRAME <<<<<<<<<<
+spark.time <- Sys.time()
+spark.beta.hat <- lapply(seq_len(10), SparkBootstrap, all_data,
+                  features, samples,
+                  10, as.numeric(Sys.time()), alpha, verbose)
+spark.time <- Sys.time() - spark.time
+print(spark.time)
+
+
+# >>>>>>>>>> LAPPLY SPEED TEST WITH R DATAFRAME <<<<<<<<<<
+r.time <- Sys.time()
+r.beta.hat <- lapply(seq_len(10), RBootstrap, x, y,
+                   features, samples,
+                   10, as.numeric(Sys.time()), alpha, verbose)
+r.time <- Sys.time() - r.time
+print(r.time)

@@ -15,57 +15,57 @@
 #'
 
 ParallelRandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test = FALSE, cores) {
-  
+
   if (test) {start = as.numeric(Sys.time())}
   x = as.matrix(x)
   y = as.matrix(y)
-  number.of.features <- ncol(x)
-  number.of.samples <- nrow(x)
-  cut.off <- 1 / number.of.samples
-  
+  features <- ncol(x)
+  samples <- nrow(x)
+  cut.off <- 1 / samples
+
   # If argument "bootstraps" is not set, then we will set it here.
   if (missing(bootstraps)) {
-    bootstraps <- round(number.of.features / number.of.samples) * 40
+    bootstraps <- round(features / samples) * 40
   }
-  
+
   # ------------ Step I ------------ #
-  
+
   if (verbose) {
     cat("\nPart 1 of 2:\n")
     pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
-  
+
   beta.hat <- mclapply(seq_len(bootstraps), .helper.part.a, x, y,
-                     number.of.features, number.of.samples,
+                     features, samples,
                      bootstraps, pb, as.numeric(Sys.time()), alpha[1], verbose, mc.cores = cores)
-  
+
   reduce.a <- function(x, y) {abs(x + y)}
   importance.measure <- Reduce(reduce.a, beta.hat)
-  
+
   # ------------ Step II ------------ #
-  
+
   if (verbose) {
     cat("\nPart 2 of 2:\n")
     pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
-  
+
   beta.hat <- mclapply(seq_len(bootstraps), .helper.part.a, x, y,
-                     number.of.features, number.of.samples,
+                     features, samples,
                      bootstraps, pb, as.numeric(Sys.time()), alpha[1], verbose, mc.cores = cores)
-  
+
   if (verbose) {
     cat("\n [Done] \n")
     close(pb)
   }
-  
+
   reduce.b <- function(x, y) {x + y / bootstraps}
   sum.weights <- Reduce(reduce.b, beta.hat)
   sum.weights[abs(sum.weights) < cut.off] <- 0
-  sum.weights <- matrix(sum.weights, nrow = number.of.features, ncol = 1)
+  sum.weights <- matrix(sum.weights, nrow = features, ncol = 1)
   rownames(sum.weights) <- colnames(x)
   colnames(sum.weights) <- "Coefficients"
   if (test) {
-    return(c(number.of.features, number.of.samples, bootstraps, as.numeric(Sys.time()) - start))
+    return(c(features, samples, bootstraps, as.numeric(Sys.time()) - start))
   }
   return(sum.weights)
 }

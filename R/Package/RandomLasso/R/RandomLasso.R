@@ -16,16 +16,16 @@
 
 RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test = FALSE) {
 
-  if (test) {start = as.numeric(Sys.time())}
   x = as.matrix(x)
   y = as.matrix(y)
-  number.of.features <- ncol(x)
-  number.of.samples <- nrow(x)
-  cut.off <- 1 / number.of.samples
+  if (test) {start = as.numeric(Sys.time())}
+  features <- ncol(x)
+  samples <- nrow(x)
+  cut.off <- 1 / samples
 
   # If argument "bootstraps" is not set, then we will set it here.
   if (missing(bootstraps)) {
-    bootstraps <- round(number.of.features / number.of.samples) * 40
+    bootstraps <- round(features / samples) * 40
   }
 
   # ------------ Step I ------------ #
@@ -34,13 +34,13 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test 
     pb <- txtProgressBar(min = 0, max = bootstraps, style = 3)
   }
 
-  .part1 <- function(ii, x, y, start.time) {
-    if (verbose) {.helper.time.remaining(pb, start.time, ii, bootstraps)}
+  .part1 <- function(ii, x, y, start_time) {
+    if (verbose) {.helper.time.remaining(pb, start_time, ii, bootstraps)}
 
-    beta.hat <- replicate(number.of.features, 0)
+    beta.hat <- replicate(features, 0)
 
-    random.features <- sample(number.of.features, number.of.samples, replace = FALSE)
-    random.samples <- sample(number.of.samples, replace = TRUE)
+    random.features <- sample(features, samples, replace = FALSE)
+    random.samples <- sample(samples, replace = TRUE)
 
     random.x <- x[random.samples, random.features]
     random.y <- y[random.samples, ]
@@ -50,10 +50,11 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test 
 
     random.x.mean <- apply(random.x, 2, mean)
     random.x.scale <- scale(random.x, random.x.mean, FALSE)
-    standard.deviation <- sqrt(apply(random.x.scale^2, 2, sum))
+    standard.deviation <- sqrt(apply(random.x.scale ^ 2, 2, sum))
     random.x.scale <- scale(random.x.scale, FALSE, standard.deviation)
 
-    beta.hat[random.features] <- Lasso(random.x.scale, random.y.scale, alpha[1])
+    beta.hat[random.features] <- Lasso(random.x.scale, random.y.scale,
+                                       alpha[1]) / standard.deviation
     return(beta.hat)
   }
 
@@ -62,15 +63,15 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test 
 
 # ------------ Step II ------------ #
 
-  .part2 <- function(ii, x, y, start.time) {
+  .part2 <- function(ii, x, y, start_time) {
     if (verbose) {
-      .helper.time.remaining(pb, start.time, ii, bootstraps)
+      .helper.time.remaining(pb, start_time, ii, bootstraps)
     }
 
-    beta.hat <- replicate(number.of.features, 0)
+    beta.hat <- replicate(features, 0)
 
-    random.features <- sample(number.of.features, number.of.samples, replace = FALSE, prob = importance.measure)
-    random.samples <- sample(number.of.samples, replace = TRUE)
+    random.features <- sample(features, samples, replace = FALSE, prob = importance.measure)
+    random.samples <- sample(samples, replace = TRUE)
 
     random.x <- x[random.samples, random.features]
     random.y <- y[random.samples, ]
@@ -80,11 +81,11 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test 
 
     random.x.mean <- apply(random.x, 2, mean)
     random.x.scale <- scale(random.x, random.x.mean, FALSE)
-    standard.deviation <- sqrt(apply(random.x.scale^2, 2, sum))
+    standard.deviation <- sqrt(apply(random.x.scale ^ 2, 2, sum))
     random.x.scale <- scale(random.x.scale, FALSE, standard.deviation)
 
-    beta.hat[random.features] <- Lasso(random.x.scale, random.y.scale, alpha[2]) / standard.deviation
-
+    beta.hat[random.features] <- Lasso(random.x.scale, random.y.scale,
+                                       alpha[2]) / standard.deviation
     return(beta.hat)
   }
 
@@ -102,11 +103,11 @@ RandomLasso <- function(x, y, bootstraps, alpha = c(1, 1), verbose = TRUE, test 
 
   sum.weights <- Reduce('+', beta.hat) / bootstraps
   sum.weights[abs(sum.weights) < cut.off] <- 0
-  sum.weights <- matrix(sum.weights, nrow = number.of.features, ncol = 1)
+  sum.weights <- matrix(sum.weights, nrow = features, ncol = 1)
   rownames(sum.weights) <- colnames(x)
   colnames(sum.weights) <- "Coefficients"
   if (test) {
-    return(c(number.of.features, number.of.samples, bootstraps, as.numeric(Sys.time()) - start))
+    return(c(features, samples, bootstraps, as.numeric(Sys.time()) - start))
   }
   return(sum.weights)
 }
